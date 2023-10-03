@@ -4,4 +4,4 @@ import logging
 logger = logging.getLogger(__name__)
 logger.debug(f"Loading {__name__}")
 
-from .sota_method1 import *
+from .gan_anomaly_detection import *

@@ -3,9 +3,9 @@
 # anything that is meant to be imported by other modules.
 
 import logging
-from src import sota_method1
+from src import gan_anomaly_detection
 
 logger = logging.getLogger(__name__)
 logger.debug(f"Loading {__name__}")
 
-sota_method1.hello_sota1()
+gan_anomaly_detection.hello_sota1()
