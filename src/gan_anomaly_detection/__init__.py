@@ -5,3 +5,5 @@ logger = logging.getLogger(__name__)
 logger.debug(f"Loading {__name__}")
 
 from .gan_anomaly_detection import *
+from .run_mnist import *
+from .mnist_utilities import *

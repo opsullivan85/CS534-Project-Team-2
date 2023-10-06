@@ -3,9 +3,11 @@
 # anything that is meant to be imported by other modules.
 
 import logging
-from src import gan_anomaly_detection
+from src import gan_anomaly_detection, run_mnist
 
 logger = logging.getLogger(__name__)
 logger.debug(f"Loading {__name__}")
 
-gan_anomaly_detection.hello_sota1()
+# gan_anomaly_detection.hello_sota1()
+
+run_mnist.run(1, 0.1, "fm", 1, 1)
