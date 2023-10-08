@@ -6,6 +6,10 @@ import importlib
 import sys
 import src.gan_anomaly_detection.mnist_utilities as network
 import src.gan_anomaly_detection.data as data
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, auc, average_precision_score, precision_recall_curve, auc
 
 tf.disable_v2_behavior()
 
@@ -14,6 +18,39 @@ tf.disable_v2_behavior()
 """
 Taken from https://github.com/houssamzenati/Efficient-GAN-Anomaly-Detection
 """
+
+
+def do_prc(scores, true_labels, file_name='', directory='', plot=True):
+    """ Does the PRC curve
+
+    Args :
+            scores (list): list of scores from the decision function
+            true_labels (list): list of labels associated to the scores
+            file_name (str): name of the PRC curve
+            directory (str): directory to save the jpg file
+            plot (bool): plots the PRC curve or not
+    Returns:
+            prc_auc (float): area under the under the PRC curve
+    """
+    precision, recall, thresholds = precision_recall_curve(true_labels, scores)
+    prc_auc = auc(recall, precision)
+
+    if plot:
+        plt.figure()
+        plt.step(recall, precision, color='b', alpha=0.2, where='post')
+        plt.fill_between(recall, precision, step='post', alpha=0.2, color='b')
+        plt.xlabel('Recall')
+        plt.ylabel('Precision')
+        plt.ylim([0.0, 1.05])
+        plt.xlim([0.0, 1.0])
+        plt.title('Precision-Recall curve: AUC=%0.4f' 
+                            %(prc_auc))
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        plt.savefig('results/' + file_name + '_prc.jpg')
+        plt.close()
+
+    return prc_auc
 
 RANDOM_SEED = 13
 FREQ_PRINT = 20  # print frequency image tensorboard [20]
@@ -241,7 +278,7 @@ def train_and_test(nb_epochs, weight, method, degree, random_seed, label):
     with tf.name_scope("Testing"):
         with tf.variable_scope("Reconstruction_loss"):
             delta = input_pl - reconstruct_ema
-            delta_flat = tf.contrib.layers.flatten(delta)
+            delta_flat = tf.keras.layers.Flatten()(delta)
             gen_score = tf.norm(
                 delta_flat, ord=degree, axis=1, keep_dims=False, name="epsilon"
             )
@@ -254,7 +291,8 @@ def train_and_test(nb_epochs, weight, method, degree, random_seed, label):
 
             elif method == "fm":
                 fm = inter_layer_inp_ema - inter_layer_rct_ema
-                fm = tf.contrib.layers.flatten(fm)
+                # fm = tf.contrib.layers.flatten(fm)
+                fm = tf.keras.layers.Flatten()(fm)
                 dis_score = tf.norm(
                     fm, ord=degree, axis=1, keep_dims=False, name="d_loss"
                 )
