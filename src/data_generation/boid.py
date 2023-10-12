@@ -243,8 +243,11 @@ class BoidLogger:
             _handle, delimiter=",", quotechar="|", quoting=csv.QUOTE_MINIMAL
         )
         self.num_neighbors = num_neighbors
+        self.log_mask = np.ones(BoidField.num_parameters, dtype=bool)
 
-    def log_header(self, boid_field: BoidField) -> None:
+    def log_header(
+        self, boid_field: BoidField, log_meta_parameters: bool = False
+    ) -> None:
         labels = [
             "x_pos",
             "y_pos",
@@ -258,10 +261,16 @@ class BoidLogger:
             "cohesion_factor",
             "is_faulty",
         ]
-        if len(labels) != boid_field.boids.shape[1]:
+        if len(labels) != BoidField.num_parameters:
             raise ValueError(
-                "Number of labels does not match number of boid parameters"
+                f"Number of labels ({len(labels)}) does not match number of parameters ({BoidField.num_parameters})"
             )
+
+        if not log_meta_parameters:
+            self.log_mask[
+                BoidField.separation_index : BoidField.cohesion_factor_index + 1
+            ] = 0
+            labels = list(np.asarray(labels)[self.log_mask])
 
         for i in range(self.num_neighbors):
             labels.append(f"neighbor_{i}_x_distance")
@@ -279,7 +288,7 @@ class BoidLogger:
             neighbor_offsets = BoidLogger.get_neighbors(
                 boid, boid_field, self.num_neighbors
             )
-            row_data.extend(boid)
+            row_data.extend(boid[self.log_mask])
             row_data.extend(neighbor_offsets)
 
         self._csv_writer.writerow(row_data)
