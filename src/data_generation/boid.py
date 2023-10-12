@@ -194,15 +194,15 @@ class BoidField:
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    boid_params = BoidParameters(100, 200, 200, 0.7, 0.1, 0.1)
-    faulty_boid_params = [BoidParameters(0, 0, 0, 0.7, 0.1, 0.1)]
-    num_good_boids = 100
-    num_faulty_boids = 25
+    boid_params = BoidParameters(25, 100, 100, 5, 0.05, 2)
+    faulty_boid_params = [BoidParameters(0, 0, 0, 5, 0.05, 2)]
+    num_good_boids = 300
+    num_faulty_boids = 50
     bf = BoidField.make_boid_field(
         num_good_boids, num_faulty_boids, boid_params, faulty_boid_params
     )
     bf.boids[:, BoidField.vel_slice] = (
-        np.random.rand(num_good_boids + num_faulty_boids, 2) * 300
+        np.random.rand(num_good_boids + num_faulty_boids, 2) * 300 - 100
     )
 
     for _ in range(1000):
@@ -213,6 +213,6 @@ if __name__ == "__main__":
         )
         plt.xlim((0, bf.field_size))
         plt.ylim((0, bf.field_size))
-        plt.pause(0.05)
-        bf.simulate(0.02)
+        plt.pause(0.01)
+        bf.simulate(0.01)
         plt.clf()
