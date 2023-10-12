@@ -1,6 +1,12 @@
 from dataclasses import dataclass
 import dataclasses
 import numpy as np
+from pathlib import Path
+import csv
+import logging
+
+logger = logging.getLogger(__name__)
+logger.debug(f"Loading {__name__}")
 
 
 @dataclass
@@ -14,6 +20,32 @@ class BoidParameters:
     alignment_factor: float
     cohesion_factor: float
     name: str = "BoidParameters"
+
+
+good_boid = BoidParameters(
+    separation=25,
+    alignment=50,
+    cohesion=50,
+    seperation_factor=800,
+    alignment_factor=0.05,
+    cohesion_factor=1,
+    name="Good Boid",
+)
+
+# get copies of good boid with one parameter changed
+large_seperation_boid = dataclasses.replace(good_boid)
+large_seperation_boid.separation *= 2
+large_seperation_boid.name = "Large Separation"
+
+low_alignment_boid = dataclasses.replace(good_boid)
+# low_alignment_boid.alignment_factor /= 5
+low_alignment_boid.alignment_factor = 0
+low_alignment_boid.name = "Low Alignment"
+
+low_cohesion_boid = dataclasses.replace(good_boid)
+# low_cohesion_boid.cohesion_factor /= 5
+low_cohesion_boid.cohesion_factor = 0
+low_cohesion_boid.name = "Low Cohesion"
 
 
 class BoidField:
@@ -202,32 +234,72 @@ class BoidField:
         return cls(boids, field_size=field_size)
 
 
-good_boid = BoidParameters(
-    separation=25,
-    alignment=50,
-    cohesion=50,
-    seperation_factor=800,
-    alignment_factor=0.05,
-    cohesion_factor=1,
-    name="Good Boid",
-)
+class BoidLogger:
+    def __init__(self, file: str, num_neighbors: int = 3) -> None:
+        self.path = Path(file)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        _handle = open(str(self.path), "w", newline="")
+        self._csv_writer = csv.writer(
+            _handle, delimiter=",", quotechar="|", quoting=csv.QUOTE_MINIMAL
+        )
+        self.num_neighbors = num_neighbors
 
-# get copies of good boid with one parameter changed
-large_seperation_boid = dataclasses.replace(good_boid)
-large_seperation_boid.separation *= 2
-large_seperation_boid.name = "Large Separation"
+    def log_header(self, boid_field: BoidField) -> None:
+        labels = [
+            "x_pos",
+            "y_pos",
+            "x_vel",
+            "y_vel",
+            "separation",
+            "alignment",
+            "cohesion",
+            "seperation_factor",
+            "alignment_factor",
+            "cohesion_factor",
+            "is_faulty",
+        ]
+        if len(labels) != boid_field.boids.shape[1]:
+            raise ValueError(
+                "Number of labels does not match number of boid parameters"
+            )
 
-low_alignment_boid = dataclasses.replace(good_boid)
-low_alignment_boid.alignment_factor /= 5
-low_alignment_boid.name = "Low Alignment"
+        for i in range(self.num_neighbors):
+            labels.append(f"neighbor_{i}_x_distance")
+            labels.append(f"neighbor_{i}_y_distance")
 
-low_cohesion_boid = dataclasses.replace(good_boid)
-low_cohesion_boid.cohesion_factor /= 5
-low_cohesion_boid.name = "Low Cohesion"
+        all_labels = []
+        for i in range(boid_field.boids.shape[0]):
+            all_labels.extend([f"{i}-{label}" for label in labels])
+
+        self._csv_writer.writerow(all_labels)
+
+    def log(self, boid_field: BoidField) -> None:
+        row_data = []
+        for boid in boid_field.boids:
+            neighbor_offsets = BoidLogger.get_neighbors(
+                boid, boid_field, self.num_neighbors
+            )
+            row_data.extend(boid)
+            row_data.extend(neighbor_offsets)
+
+        self._csv_writer.writerow(row_data)
+
+    @staticmethod
+    def get_neighbors(boid: np.ndarray, boid_field: BoidField, num_neighbors: int):
+        distances = np.linalg.norm(
+            boid_field.boids[:, BoidField.pos_slice] - boid[BoidField.pos_slice],
+            axis=1,
+        )
+        neighbor_indices = np.argsort(distances)[1 : num_neighbors + 1]
+        neighbors = boid_field.boids[neighbor_indices]
+        neighbor_offsets = neighbors[:, BoidField.pos_slice] - boid[BoidField.pos_slice]
+        neighbor_offsets = neighbor_offsets.ravel()
+        return neighbor_offsets
 
 
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
+def get_data(num_good_boids, num_faulty_boids, num_iterations, visualize=True):
+    if visualize:
+        import matplotlib.pyplot as plt
 
     boid_params = good_boid
     faulty_boid_params = [
@@ -235,8 +307,6 @@ if __name__ == "__main__":
         low_alignment_boid,
         low_cohesion_boid,
     ]
-    num_good_boids = 500
-    num_faulty_boids = 20
     bf = BoidField.make_boid_field(
         num_good_boids, num_faulty_boids, boid_params, faulty_boid_params
     )
@@ -244,17 +314,25 @@ if __name__ == "__main__":
     bf.boids[:, BoidField.vel_slice] = (
         np.random.rand(num_good_boids + num_faulty_boids, 2) * 500 - 250
     )
+    logger = BoidLogger("data/boid_log.csv")
+    logger.log_header(bf)
 
-    for _ in range(1000):
-        plt.scatter(
-            bf.boids[:, BoidField.x_pos_index],
-            bf.boids[:, BoidField.y_pos_index],
-            c=bf.boids[:, BoidField.is_faulty_index],
-            s=20,
-        )
-        # plt.legend()
-        plt.xlim((0, bf.field_size))
-        plt.ylim((0, bf.field_size))
-        plt.pause(0.01)
-        bf.simulate(0.04)
-        plt.clf()
+    for i in range(num_iterations):
+        bf.simulate(0.01)
+        logger.log(bf)
+        print(i)
+        if visualize:
+            plt.scatter(
+                bf.boids[:, BoidField.x_pos_index],
+                bf.boids[:, BoidField.y_pos_index],
+                c=bf.boids[:, BoidField.is_faulty_index],
+                s=20,
+            )
+            plt.xlim((0, bf.field_size))
+            plt.ylim((0, bf.field_size))
+            plt.pause(0.01)
+            plt.clf()
+
+
+if __name__ == "__main__":
+    get_data(num_good_boids=150, num_faulty_boids=30, num_iterations=100)

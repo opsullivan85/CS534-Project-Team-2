@@ -3,9 +3,10 @@
 # anything that is meant to be imported by other modules.
 
 import logging
-from src import sota_method2
+from src.data_generation import get_data
 
 logger = logging.getLogger(__name__)
 logger.debug(f"Loading {__name__}")
 
-sota_method2.hello_sota2()
+
+get_data(num_good_boids=150, num_faulty_boids=30, num_iterations=100)
