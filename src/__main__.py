@@ -6,12 +6,12 @@ import logging
 logger = logging.getLogger(__name__)
 logger.debug(f"Loading {__name__}")
 
-from src import sota_method1
+from src import gan_anomaly_detection
 from src import sota_method2
 from src import sota_method3
 from src import sota_method4
 
-sota_method1.hello_sota1()
+gan_anomaly_detection.hello_sota1()
 sota_method2.hello_sota2()
 sota_method3.hello_sota3()
 sota_method4.hello_sota4()

@@ -11,7 +11,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 logger.debug(f"Loading {__name__}")
 
-from .sota_method1 import *
+from .gan_anomaly_detection import *
 from .sota_method2 import *
 from .sota_method3 import *
 from .sota_method4 import *
