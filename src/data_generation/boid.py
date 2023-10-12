@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import dataclasses
 import numpy as np
 
 
@@ -12,6 +13,7 @@ class BoidParameters:
     seperation_factor: float
     alignment_factor: float
     cohesion_factor: float
+    name: str = "BoidParameters"
 
 
 class BoidField:
@@ -86,6 +88,7 @@ class BoidField:
         velocities = self.boids[:, BoidField.vel_slice]
         velocities = np.minimum(velocities, self.max_velocity)
         velocities = np.maximum(velocities, -self.max_velocity)
+        self.boids[:, BoidField.vel_slice] = velocities
 
     def simulate(self, dt=1) -> None:
         new_velocity = self.boids[:, BoidField.vel_slice].copy()
@@ -110,8 +113,14 @@ class BoidField:
                 )
                 seperation_factor = boid[BoidField.seperation_factor_index]
                 # update velocity based on seperation factor
+                # This equivalent to the (relative position unit vector) * (seperation factor) / (distance to other boid)
+                neighbor_distances = np.linalg.norm(relative_position_vectors, axis=1)[
+                    :, np.newaxis
+                ]
+                neighbor_unit_vectors = relative_position_vectors / neighbor_distances
                 new_velocity[i] -= (
-                    np.sum(relative_position_vectors, axis=0) * seperation_factor
+                    np.sum(neighbor_unit_vectors / neighbor_distances, axis=0)
+                    * seperation_factor
                 )
 
             if np.any(alignment_range_mask):
@@ -123,7 +132,7 @@ class BoidField:
                 current_velocity = boid[BoidField.vel_slice]
                 # update velocity based on alignment factor
                 new_velocity[i] += (
-                    np.average(other_velocities, axis=0) - current_velocity
+                    np.average(other_velocities - current_velocity, axis=0)
                 ) * alignment_factor
 
             if np.any(cohesion_range_mask):
@@ -135,7 +144,7 @@ class BoidField:
                 current_position = boid[BoidField.pos_slice]
                 # update velocity based on cohesion factor
                 new_velocity[i] += (
-                    np.average(other_positions, axis=0) - current_position
+                    np.average(other_positions - current_position, axis=0)
                 ) * cohesion_factor
 
         self.boids[:, BoidField.vel_slice] = new_velocity
@@ -193,34 +202,47 @@ class BoidField:
         return cls(boids, field_size=field_size)
 
 
+good_boid = BoidParameters(
+    separation=25,
+    alignment=50,
+    cohesion=50,
+    seperation_factor=800,
+    alignment_factor=0.05,
+    cohesion_factor=1,
+    name="Good Boid",
+)
+
+# get copies of good boid with one parameter changed
+large_seperation_boid = dataclasses.replace(good_boid)
+large_seperation_boid.separation *= 2
+large_seperation_boid.name = "Large Separation"
+
+low_alignment_boid = dataclasses.replace(good_boid)
+low_alignment_boid.alignment_factor /= 5
+low_alignment_boid.name = "Low Alignment"
+
+low_cohesion_boid = dataclasses.replace(good_boid)
+low_cohesion_boid.cohesion_factor /= 5
+low_cohesion_boid.name = "Low Cohesion"
+
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    boid_params = BoidParameters(
-        separation=50,
-        alignment=200,
-        cohesion=200,
-        seperation_factor=10,
-        alignment_factor=0.3,
-        cohesion_factor=1,
-    )
+    boid_params = good_boid
     faulty_boid_params = [
-        BoidParameters(
-            separation=0,
-            alignment=0,
-            cohesion=0,
-            seperation_factor=0,
-            alignment_factor=0,
-            cohesion_factor=0,
-        )
+        large_seperation_boid,
+        low_alignment_boid,
+        low_cohesion_boid,
     ]
-    num_good_boids = 100
-    num_faulty_boids = 0
+    num_good_boids = 500
+    num_faulty_boids = 20
     bf = BoidField.make_boid_field(
         num_good_boids, num_faulty_boids, boid_params, faulty_boid_params
     )
+    bf.max_velocity = 200
     bf.boids[:, BoidField.vel_slice] = (
-        np.random.rand(num_good_boids + num_faulty_boids, 2) * 300 - 100
+        np.random.rand(num_good_boids + num_faulty_boids, 2) * 500 - 250
     )
 
     for _ in range(1000):
@@ -228,9 +250,11 @@ if __name__ == "__main__":
             bf.boids[:, BoidField.x_pos_index],
             bf.boids[:, BoidField.y_pos_index],
             c=bf.boids[:, BoidField.is_faulty_index],
+            s=20,
         )
+        # plt.legend()
         plt.xlim((0, bf.field_size))
         plt.ylim((0, bf.field_size))
         plt.pause(0.01)
-        bf.simulate(0.01)
+        bf.simulate(0.04)
         plt.clf()
