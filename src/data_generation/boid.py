@@ -39,7 +39,7 @@ class BoidField:
         self,
         boids: np.ndarray,
         field_size: float,
-        max_velocity: float = 75,
+        max_velocity: float = 500,
     ) -> None:
         """Creates a new BoidField.
 
@@ -176,7 +176,8 @@ class BoidField:
             boids[i, cls.cohesion_factor_index] = boid_parameters.cohesion_factor
         
         for i in range(num_faulty_boids):
-            faulty_boid_parameter = faulty_boid_parameters[i % len(faulty_boid_parameters)]
+            faulty_parameter_index = i % len(faulty_boid_parameters)
+            faulty_boid_parameter = faulty_boid_parameters[faulty_parameter_index]
             boids[i + num_boids, cls.pos_slice] = np.random.rand(2) * field_size
             boids[i + num_boids, cls.separation_index] = faulty_boid_parameter.separation
             boids[i + num_boids, cls.alignment_index] = faulty_boid_parameter.alignment
@@ -184,7 +185,7 @@ class BoidField:
             boids[i + num_boids, cls.seperation_factor_index] = faulty_boid_parameter.seperation_factor
             boids[i + num_boids, cls.alignment_factor_index] = faulty_boid_parameter.alignment_factor
             boids[i + num_boids, cls.cohesion_factor_index] = faulty_boid_parameter.cohesion_factor
-            boids[i + num_boids, cls.is_faulty_index] = i + 1
+            boids[i + num_boids, cls.is_faulty_index] = faulty_parameter_index + 1
         # fmt: on
 
         return cls(boids, field_size=field_size)
@@ -193,9 +194,16 @@ class BoidField:
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    boid_params = BoidParameters(75, 75, 75, 2.5, 1.2, 0.8)
-    faulty_boid_params = [BoidParameters(200, 75, 75, 2.5, 1.2, 0.8)]
-    bf = BoidField.make_boid_field(30, 1, boid_params, faulty_boid_params)
+    boid_params = BoidParameters(100, 200, 200, 0.7, 0.1, 0.1)
+    faulty_boid_params = [BoidParameters(0, 0, 0, 0.7, 0.1, 0.1)]
+    num_good_boids = 100
+    num_faulty_boids = 25
+    bf = BoidField.make_boid_field(
+        num_good_boids, num_faulty_boids, boid_params, faulty_boid_params
+    )
+    bf.boids[:, BoidField.vel_slice] = (
+        np.random.rand(num_good_boids + num_faulty_boids, 2) * 300
+    )
 
     for _ in range(1000):
         plt.scatter(
@@ -206,5 +214,5 @@ if __name__ == "__main__":
         plt.xlim((0, bf.field_size))
         plt.ylim((0, bf.field_size))
         plt.pause(0.05)
-        bf.simulate(0.1)
+        bf.simulate(0.02)
         plt.clf()
