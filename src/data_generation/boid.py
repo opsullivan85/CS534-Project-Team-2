@@ -1,5 +1,12 @@
 from dataclasses import dataclass
+import dataclasses
 import numpy as np
+from pathlib import Path
+import csv
+import logging
+
+logger = logging.getLogger(__name__)
+logger.debug(f"Loading {__name__}")
 
 
 @dataclass
@@ -12,6 +19,33 @@ class BoidParameters:
     seperation_factor: float
     alignment_factor: float
     cohesion_factor: float
+    name: str = "BoidParameters"
+
+
+good_boid = BoidParameters(
+    separation=25,
+    alignment=50,
+    cohesion=50,
+    seperation_factor=800,
+    alignment_factor=0.05,
+    cohesion_factor=1,
+    name="Good Boid",
+)
+
+# get copies of good boid with one parameter changed
+large_seperation_boid = dataclasses.replace(good_boid)
+large_seperation_boid.separation *= 2
+large_seperation_boid.name = "Large Separation"
+
+low_alignment_boid = dataclasses.replace(good_boid)
+# low_alignment_boid.alignment_factor /= 5
+low_alignment_boid.alignment_factor = 0
+low_alignment_boid.name = "Low Alignment"
+
+low_cohesion_boid = dataclasses.replace(good_boid)
+# low_cohesion_boid.cohesion_factor /= 5
+low_cohesion_boid.cohesion_factor = 0
+low_cohesion_boid.name = "Low Cohesion"
 
 
 class BoidField:
@@ -89,7 +123,9 @@ class BoidField:
         self.boids[:, BoidField.vel_slice] = velocities
 
     def simulate(self, dt=1) -> None:
-        for boid in self.boids:
+        new_velocity = self.boids[:, BoidField.vel_slice].copy()
+
+        for i, boid in enumerate(self.boids):
             distances = np.linalg.norm(
                 self.boids[:, BoidField.pos_slice] - boid[BoidField.pos_slice], axis=1
             )
@@ -109,8 +145,14 @@ class BoidField:
                 )
                 seperation_factor = boid[BoidField.seperation_factor_index]
                 # update velocity based on seperation factor
-                boid[BoidField.vel_slice] -= (
-                    np.sum(relative_position_vectors, axis=0) * seperation_factor
+                # This equivalent to the (relative position unit vector) * (seperation factor) / (distance to other boid)
+                neighbor_distances = np.linalg.norm(relative_position_vectors, axis=1)[
+                    :, np.newaxis
+                ]
+                neighbor_unit_vectors = relative_position_vectors / neighbor_distances
+                new_velocity[i] -= (
+                    np.sum(neighbor_unit_vectors / neighbor_distances, axis=0)
+                    * seperation_factor
                 )
 
             if np.any(alignment_range_mask):
@@ -121,8 +163,8 @@ class BoidField:
                 alignment_factor = boid[BoidField.alignment_factor_index]
                 current_velocity = boid[BoidField.vel_slice]
                 # update velocity based on alignment factor
-                boid[BoidField.vel_slice] += (
-                    np.average(other_velocities, axis=0) - current_velocity
+                new_velocity[i] += (
+                    np.average(other_velocities - current_velocity, axis=0)
                 ) * alignment_factor
 
             if np.any(cohesion_range_mask):
@@ -133,10 +175,11 @@ class BoidField:
                 cohesion_factor = boid[BoidField.cohesion_factor_index]
                 current_position = boid[BoidField.pos_slice]
                 # update velocity based on cohesion factor
-                boid[BoidField.vel_slice] += (
-                    np.average(other_positions, axis=0) - current_position
+                new_velocity[i] += (
+                    np.average(other_positions - current_position, axis=0)
                 ) * cohesion_factor
 
+        self.boids[:, BoidField.vel_slice] = new_velocity
         self.apply_velocity(dt)
         self.cap_velocity()
 
@@ -191,28 +234,114 @@ class BoidField:
         return cls(boids, field_size=field_size)
 
 
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
+class BoidLogger:
+    def __init__(self, file: str, num_neighbors: int = 3) -> None:
+        self.path = Path(file)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        _handle = open(str(self.path), "w", newline="")
+        self._csv_writer = csv.writer(
+            _handle, delimiter=",", quotechar="|", quoting=csv.QUOTE_MINIMAL
+        )
+        self.num_neighbors = num_neighbors
+        self.log_mask = np.ones(BoidField.num_parameters, dtype=bool)
 
-    boid_params = BoidParameters(100, 200, 200, 0.7, 0.1, 0.1)
-    faulty_boid_params = [BoidParameters(0, 0, 0, 0.7, 0.1, 0.1)]
-    num_good_boids = 100
-    num_faulty_boids = 25
+    def log_header(
+        self, boid_field: BoidField, log_meta_parameters: bool = False
+    ) -> None:
+        labels = [
+            "x_pos",
+            "y_pos",
+            "x_vel",
+            "y_vel",
+            "separation",
+            "alignment",
+            "cohesion",
+            "seperation_factor",
+            "alignment_factor",
+            "cohesion_factor",
+            "is_faulty",
+        ]
+        if len(labels) != BoidField.num_parameters:
+            raise ValueError(
+                f"Number of labels ({len(labels)}) does not match number of parameters ({BoidField.num_parameters})"
+            )
+
+        if not log_meta_parameters:
+            self.log_mask[
+                BoidField.separation_index : BoidField.cohesion_factor_index + 1
+            ] = 0
+            labels = list(np.asarray(labels)[self.log_mask])
+
+        for i in range(self.num_neighbors):
+            labels.append(f"neighbor_{i}_x_distance")
+            labels.append(f"neighbor_{i}_y_distance")
+
+        all_labels = []
+        for i in range(boid_field.boids.shape[0]):
+            all_labels.extend([f"{i}-{label}" for label in labels])
+
+        self._csv_writer.writerow(all_labels)
+
+    def log(self, boid_field: BoidField) -> None:
+        row_data = []
+        for boid in boid_field.boids:
+            neighbor_offsets = BoidLogger.get_neighbors(
+                boid, boid_field, self.num_neighbors
+            )
+            row_data.extend(boid[self.log_mask])
+            row_data.extend(neighbor_offsets)
+
+        self._csv_writer.writerow(row_data)
+
+    @staticmethod
+    def get_neighbors(boid: np.ndarray, boid_field: BoidField, num_neighbors: int):
+        distances = np.linalg.norm(
+            boid_field.boids[:, BoidField.pos_slice] - boid[BoidField.pos_slice],
+            axis=1,
+        )
+        neighbor_indices = np.argsort(distances)[1 : num_neighbors + 1]
+        neighbors = boid_field.boids[neighbor_indices]
+        neighbor_offsets = neighbors[:, BoidField.pos_slice] - boid[BoidField.pos_slice]
+        neighbor_offsets = neighbor_offsets.ravel()
+        return neighbor_offsets
+
+
+def get_data(num_good_boids, num_faulty_boids, num_iterations, visualize=True):
+    if visualize:
+        import matplotlib.pyplot as plt
+
+    boid_params = good_boid
+    faulty_boid_params = [
+        large_seperation_boid,
+        low_alignment_boid,
+        low_cohesion_boid,
+    ]
     bf = BoidField.make_boid_field(
         num_good_boids, num_faulty_boids, boid_params, faulty_boid_params
     )
+    bf.max_velocity = 200
     bf.boids[:, BoidField.vel_slice] = (
-        np.random.rand(num_good_boids + num_faulty_boids, 2) * 300
+        np.random.rand(num_good_boids + num_faulty_boids, 2) * 500 - 250
     )
+    logger = BoidLogger("data/boid_log.csv")
+    logger.log_header(bf)
 
-    for _ in range(1000):
-        plt.scatter(
-            bf.boids[:, BoidField.x_pos_index],
-            bf.boids[:, BoidField.y_pos_index],
-            c=bf.boids[:, BoidField.is_faulty_index],
-        )
-        plt.xlim((0, bf.field_size))
-        plt.ylim((0, bf.field_size))
-        plt.pause(0.05)
-        bf.simulate(0.02)
-        plt.clf()
+    for i in range(num_iterations):
+        bf.simulate(0.01)
+        logger.log(bf)
+        print(i)
+        if visualize:
+            plt.scatter(
+                bf.boids[:, BoidField.x_pos_index],
+                bf.boids[:, BoidField.y_pos_index],
+                c=bf.boids[:, BoidField.is_faulty_index],
+                s=20,
+            )
+            plt.xlim((0, bf.field_size))
+            plt.ylim((0, bf.field_size))
+            plt.pause(0.01)
+            plt.clf()
+
+
+if __name__ == "__main__":
+    get_data(num_good_boids=150, num_faulty_boids=30, num_iterations=100)

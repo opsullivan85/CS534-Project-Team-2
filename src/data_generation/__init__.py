@@ -4,5 +4,4 @@ import logging
 logger = logging.getLogger(__name__)
 logger.debug(f"Loading {__name__}")
 
-from .data_generation import *
 from .boid import *
