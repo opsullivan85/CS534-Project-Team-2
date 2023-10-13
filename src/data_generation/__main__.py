@@ -9,4 +9,4 @@ logger = logging.getLogger(__name__)
 logger.debug(f"Loading {__name__}")
 
 
-get_data(num_good_boids=150, num_faulty_boids=30, num_iterations=100)
+get_data(num_good_boids=150, num_faulty_boids=30, num_iterations=500)

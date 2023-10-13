@@ -45,7 +45,7 @@ def get_rolling_window(
 
 def get_rolling_data(
     file: str, window_size: int, step_size: int = 1
-) -> tuple[tuple[np.ndarray], tuple[float]]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Gets rolling data from a file
 
     Args:
@@ -55,15 +55,20 @@ def get_rolling_data(
 
     Returns:
         tuple[tuple[np.ndarray], tuple[float]]: X, y data.
-            X is a tuple of numpy arrays, each a rolling view of the data for a boid.
+            X is an np.ndarray where each row is a window of flattened data for one boid.
+            y is an np.ndarray where each row is the is_faulty value for the boid
     """
-    window_size *= fields_per_boid
-    step_size *= fields_per_boid
+    # the -1 is because we don't want to include the is_faulty field in X
+    window_size *= fields_per_boid - 1
+    step_size *= fields_per_boid - 1
     boids = seperate_boids(file)
     X = []
     y = []
+    data_mask = np.ones((fields_per_boid,), dtype=bool)
+    data_mask[is_faulty_index] = 0  # don't include is_faulty in X
     for boid in boids:
-        X.append(get_rolling_window(boid.ravel(), window_size, step_size))
+        masked_boid_data = boid[:, data_mask]
+        X.append(get_rolling_window(masked_boid_data.ravel(), window_size, step_size))
         y.append(
             np.full(shape=(X[-1].shape[0],), fill_value=boid[0, is_faulty_index])[
                 :, np.newaxis
