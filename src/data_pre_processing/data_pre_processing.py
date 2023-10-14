@@ -9,6 +9,9 @@ fields_per_boid -= 6  # metaparameters are not logged
 fields_per_boid += 6  # 2 values for 3 neighbors are logged
 is_faulty_index = BoidField.is_faulty_index - 6  # because metaparameters are not logged
 
+y_fields_per_boid = 1
+X_fields_per_boid = fields_per_boid - y_fields_per_boid
+
 
 def seperate_boids(file: str) -> list[np.ndarray]:
     """Reads in datafile, splits into a list of numpy arrays, each array
@@ -44,7 +47,7 @@ def get_rolling_window(
 
 
 def get_rolling_data(
-    file: str, window_size: int, step_size: int = 1
+    file: str, window_size_: int, step_size: int = 1
 ) -> tuple[np.ndarray, np.ndarray]:
     """Gets rolling data from a file
 
@@ -58,9 +61,9 @@ def get_rolling_data(
             X is an np.ndarray where each row is a window of flattened data for one boid.
             y is an np.ndarray where each row is the is_faulty value for the boid
     """
-    # the -1 is because we don't want to include the is_faulty field in X
-    window_size *= fields_per_boid - 1
-    step_size *= fields_per_boid - 1
+    # these are scaled to be in terms of boid iterations
+    window_size *= X_fields_per_boid
+    step_size *= X_fields_per_boid
     boids = seperate_boids(file)
     X = []
     y = []
