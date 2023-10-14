@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 from src.data_generation import BoidField
 from numpy.lib.stride_tricks import sliding_window_view
+from pathlib import Path
+import src
 
 
 fields_per_boid = BoidField.num_parameters
@@ -11,6 +13,11 @@ is_faulty_index = BoidField.is_faulty_index - 6  # because metaparameters are no
 
 y_fields_per_boid = 1
 X_fields_per_boid = fields_per_boid - y_fields_per_boid
+
+# variables to define behavior of load_data
+window_size = 75
+step_size = 1
+x_width = window_size * X_fields_per_boid
 
 
 def seperate_boids(file: str) -> list[np.ndarray]:
@@ -24,7 +31,7 @@ def seperate_boids(file: str) -> list[np.ndarray]:
         list[np.ndarray]: List of numpy arrays containing the data for each boid
     """
 
-    df = pd.read_csv(file)
+    df = pd.read_csv(file).astype('float32')
     data = df.to_numpy()
     boids = np.split(data, data.shape[1] / fields_per_boid, axis=1)
     return boids
@@ -47,7 +54,7 @@ def get_rolling_window(
 
 
 def get_rolling_data(
-    file: str, window_size_: int, step_size: int = 1
+    file: str, window_size: int, step_size: int = 1
 ) -> tuple[np.ndarray, np.ndarray]:
     """Gets rolling data from a file
 
@@ -80,3 +87,17 @@ def get_rolling_data(
     X = np.vstack(X)
     y = np.vstack(y)
     return X, y
+
+def load_data(data_path: str = None) -> tuple[np.ndarray, np.ndarray]:
+    """Loads the data
+
+    Args:
+        data_path (str, optional): Path to load data from. Defaults to `PROJECT_DIR/data/boid_log.csv`.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: X, y
+    """
+    
+    data_path = data_path or Path(src.__file__).parent.parent / "data" / "boid_log.csv"
+
+    return get_rolling_data(data_path, window_size=window_size, step_size=1)
