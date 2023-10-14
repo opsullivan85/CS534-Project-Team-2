@@ -3,10 +3,14 @@
 # anything that is meant to be imported by other modules.
 
 import logging
-from src.data_generation import get_data
+from src import data_pre_processing
+import src
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 logger.debug(f"Loading {__name__}")
 
+# This gets the data in the format we want
+X, y = data_pre_processing.load_data()
 
-get_data(num_good_boids=150, num_faulty_boids=30, num_iterations=500)
+print(X.shape, y.shape)
