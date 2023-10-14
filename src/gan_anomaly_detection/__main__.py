@@ -3,11 +3,9 @@
 # anything that is meant to be imported by other modules.
 
 import logging
-from src import gan_anomaly_detection, run_mnist
+from src import bigan_model
 
 logger = logging.getLogger(__name__)
 logger.debug(f"Loading {__name__}")
 
-# gan_anomaly_detection.hello_sota1()
-
-run_mnist.run(100, 0.1, "fm", 1, 1)
+bigan_model.train()
