@@ -1,8 +1,10 @@
 # https://github.com/Hourout/GAN-keras/blob/master/GAN/GAN.py
 
+import datetime
 import numpy as np
 import tensorflow as tf
-import tensorview as tv
+
+# import tensorview as tv
 
 
 def generator(latent_dim=100, image_shape=(28, 28, 1)):
@@ -35,6 +37,7 @@ def discriminator(image_shape=(28, 28, 1)):
 
 
 def train(batch_num=10000, batch_size=128, latent_dim=100, image_shape=(28, 28, 1)):
+    image_log_interval = 50
     dnet = discriminator(image_shape)
     dnet.compile(
         loss="binary_crossentropy",
@@ -59,29 +62,36 @@ def train(batch_num=10000, batch_size=128, latent_dim=100, image_shape=(28, 28, 
     X_train = X_train / 127.5 - 1.0
     X_train = np.expand_dims(X_train, axis=3)
 
-    tv_plot = tv.train.PlotMetrics(columns=2, wait_num=50)
-    for batch in range(batch_num):
-        batch_image = X_train[
-            np.random.choice(range(X_train.shape[0]), batch_size, False)
-        ]
-        batch_noise = np.random.normal(0, 1, (batch_size, latent_dim))
-        batch_gen_image = gnet.predict(batch_noise)
+    current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    train_log_dir = "logs/" + current_time + "/train"
+    train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 
-        d_loss_real = dnet.train_on_batch(batch_image, np.ones((batch_size, 1)))
-        d_loss_fake = dnet.train_on_batch(batch_gen_image, np.zeros((batch_size, 1)))
-        d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
-        g_loss = gan.train_on_batch(batch_noise, np.ones((batch_size, 1)))
-        tv_plot.update(
-            {
-                "D_loss": d_loss[0],
-                "D_binary_acc": d_loss[1],
-                "G_loss": g_loss[0],
-                "G_binary_acc": g_loss[1],
-            }
-        )
-        tv_plot.draw()
-    tv_plot.visual()
-    tv_plot.visual(name="model_visual_gif", gif=True)
+    with train_summary_writer.as_default():
+        # tv_plot = tv.train.PlotMetrics(columns=2, wait_num=50)
+        for batch in range(batch_num):
+            batch_image = X_train[
+                np.random.choice(range(X_train.shape[0]), batch_size, False)
+            ]
+            batch_noise = np.random.normal(0, 1, (batch_size, latent_dim))
+            batch_gen_image = gnet.predict(batch_noise, verbose=0)
+
+            if batch % image_log_interval == 0:
+                tf.summary.image("Generator Image", batch_gen_image, step=batch)
+
+            d_loss_real = dnet.train_on_batch(batch_image, np.ones((batch_size, 1)))
+            d_loss_fake = dnet.train_on_batch(
+                batch_gen_image, np.zeros((batch_size, 1))
+            )
+            d_loss = 0.5 * np.add(d_loss_real, d_loss_fake)
+            g_loss = gan.train_on_batch(batch_noise, np.ones((batch_size, 1)))
+            tf.summary.scalar("d_loss", d_loss[0], step=batch)
+            tf.summary.scalar("d_binary_acc", d_loss[1], step=batch)
+            tf.summary.scalar("g_loss", g_loss[0], step=batch)
+            tf.summary.scalar("g_binary_acc", g_loss[1], step=batch)
+            print(
+                f"Batch: {batch:>5}/{batch_num}, D_loss: {d_loss[0]:6.4f}, D_binary_acc: {d_loss[1]:6.4f}, G_loss: {g_loss[0]:6.4f}, G_binary_acc: {g_loss[1]:6.4f}\r",
+                end="",
+            )
     return gnet
 
 
