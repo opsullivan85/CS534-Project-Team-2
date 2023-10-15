@@ -235,7 +235,9 @@ class BoidField:
 
 
 class BoidLogger:
-    def __init__(self, file: str, num_neighbors: int = 3) -> None:
+    def __init__(
+        self, file: str, boid_field: BoidField, num_neighbors: int = 3
+    ) -> None:
         self.path = Path(file)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         _handle = open(str(self.path), "w", newline="")
@@ -244,10 +246,13 @@ class BoidLogger:
         )
         self.num_neighbors = num_neighbors
         self.log_mask = np.ones(BoidField.num_parameters, dtype=bool)
+        self.boid_field = boid_field
+        # used to scale data to be between 0 and 1 where applicable
+        self.scalars = np.ones(BoidField.num_parameters)
+        self.scalars[BoidField.pos_slice] = self.boid_field.field_size
+        self.scalars[BoidField.vel_slice] = self.boid_field.max_velocity
 
-    def log_header(
-        self, boid_field: BoidField, log_meta_parameters: bool = False
-    ) -> None:
+    def log_header(self, log_meta_parameters: bool = False) -> None:
         labels = [
             "x_pos",
             "y_pos",
@@ -277,19 +282,19 @@ class BoidLogger:
             labels.append(f"neighbor_{i}_y_distance")
 
         all_labels = []
-        for i in range(boid_field.boids.shape[0]):
+        for i in range(self.boid_field.boids.shape[0]):
             all_labels.extend([f"{i}-{label}" for label in labels])
 
         self._csv_writer.writerow(all_labels)
 
-    def log(self, boid_field: BoidField) -> None:
+    def log(self) -> None:
         row_data = []
-        for boid in boid_field.boids:
+        for boid in self.boid_field.boids:
             neighbor_offsets = BoidLogger.get_neighbors(
-                boid, boid_field, self.num_neighbors
+                boid, self.boid_field, self.num_neighbors
             )
-            row_data.extend(boid[self.log_mask])
-            row_data.extend(neighbor_offsets)
+            row_data.extend((boid / self.scalars)[self.log_mask])
+            row_data.extend(neighbor_offsets / self.boid_field.field_size)
 
         self._csv_writer.writerow(row_data)
 
@@ -323,12 +328,12 @@ def get_data(num_good_boids, num_faulty_boids, num_iterations, visualize=True):
     bf.boids[:, BoidField.vel_slice] = (
         np.random.rand(num_good_boids + num_faulty_boids, 2) * 500 - 250
     )
-    logger = BoidLogger("data/boid_log.csv")
-    logger.log_header(bf)
+    logger = BoidLogger("data/boid_log.csv", boid_field=bf)
+    logger.log_header()
 
     for i in range(num_iterations):
         bf.simulate(0.01)
-        logger.log(bf)
+        logger.log()
         print(i)
         if visualize:
             plt.scatter(

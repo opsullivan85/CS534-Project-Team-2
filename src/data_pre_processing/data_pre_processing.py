@@ -15,7 +15,7 @@ y_fields_per_boid = 1
 X_fields_per_boid = fields_per_boid - y_fields_per_boid
 
 # variables to define behavior of load_data
-window_size = 75
+window_size = 50
 step_size = 1
 x_width = window_size * X_fields_per_boid
 
@@ -31,7 +31,7 @@ def seperate_boids(file: str) -> list[np.ndarray]:
         list[np.ndarray]: List of numpy arrays containing the data for each boid
     """
 
-    df = pd.read_csv(file).astype('float32')
+    df = pd.read_csv(file).astype("float32")
     data = df.to_numpy()
     boids = np.split(data, data.shape[1] / fields_per_boid, axis=1)
     return boids
@@ -88,6 +88,7 @@ def get_rolling_data(
     y = np.vstack(y)
     return X, y
 
+
 def load_data(data_path: str = None) -> tuple[np.ndarray, np.ndarray]:
     """Loads the data
 
@@ -97,7 +98,7 @@ def load_data(data_path: str = None) -> tuple[np.ndarray, np.ndarray]:
     Returns:
         tuple[np.ndarray, np.ndarray]: X, y
     """
-    
+
     data_path = data_path or Path(src.__file__).parent.parent / "data" / "boid_log.csv"
 
     return get_rolling_data(data_path, window_size=window_size, step_size=1)
