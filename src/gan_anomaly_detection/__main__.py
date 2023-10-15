@@ -4,8 +4,10 @@
 
 import logging
 from src import bigan_model
+from src.data_generation.boid import get_data
 
 logger = logging.getLogger(__name__)
 logger.debug(f"Loading {__name__}")
 
+# get_data(num_good_boids=300, num_faulty_boids=60, num_iterations=1000, visualize=False)
 bigan_model.train()

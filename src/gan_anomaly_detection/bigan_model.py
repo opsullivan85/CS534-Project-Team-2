@@ -1,10 +1,11 @@
 # Code modified from: https://github.com/jason71995/bigan/blob/master/train_mnist.py
 
+from datetime import datetime
 from src.data_pre_processing import load_data, x_width
 
 import tensorflow as tf
 from keras.models import Model
-from keras.layers import Input, Concatenate, Dense, LeakyReLU
+from keras.layers import Input, Concatenate, Dense, LeakyReLU, Dropout
 from keras.optimizers import Adam
 import numpy as np
 from PIL import Image
@@ -23,6 +24,7 @@ def build_generator():
     y = LeakyReLU()(y)
     y = Dense(512)(y)
     y = LeakyReLU()(y)
+    # y = Dropout(0.5)(y)
     y = Dense(1024)(y)
     y = LeakyReLU()(y)
     y = Dense(x_width)(y)
@@ -60,9 +62,9 @@ def build_discriminator():
 
 
 def build_train_step(generator, encoder, discriminator):
-    g_optimizer = Adam(lr=0.0001, beta_1=0.0, beta_2=0.9)
-    e_optimizer = Adam(lr=0.0001, beta_1=0.0, beta_2=0.9)
-    d_optimizer = Adam(lr=0.0001, beta_1=0.0, beta_2=0.9)
+    g_optimizer = Adam(lr=0.0001)  # , beta_1=0.0, beta_2=0.9)
+    e_optimizer = Adam(lr=0.0001)  # , beta_1=0.0, beta_2=0.9)
+    d_optimizer = Adam(lr=0.0001)  # , beta_1=0.0, beta_2=0.9)
 
     @tf.function
     def train_step(real_image, real_code):
@@ -98,15 +100,17 @@ def build_train_step(generator, encoder, discriminator):
 
 
 def train():
-    check_point = 1000
-    iters = 20 * check_point
-    batch_size = 128
-
     x_train, y_train = load_data()
     # filter out faulty boids
     x_train = x_train[np.logical_not(y_train)[:, 0], :]
+    print(f"{x_train.shape = }")
 
     num_of_data = x_train.shape[0]
+
+    check_point = 100
+    batch_size = 256
+    epoch_size = num_of_data // batch_size
+    iters = epoch_size * 4
 
     z_train = np.random.uniform(
         -1.0, 1.0, (num_of_data, ModelParameters.latent_code_length)
@@ -120,38 +124,53 @@ def train():
     discriminator = build_discriminator()
     train_step = build_train_step(generator, encoder, discriminator)
 
-    for i in range(iters):
-        real_images = x_train[np.random.permutation(num_of_data)[:batch_size]]
-        real_code = z_train[np.random.permutation(num_of_data)[:batch_size]]
+    current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
+    train_log_dir = "logs/gradient_tape/" + current_time + "/train"
+    test_log_dir = "logs/gradient_tape/" + current_time + "/test"
+    train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+    test_summary_writer = tf.summary.create_file_writer(test_log_dir)
 
-        d_loss, g_loss, e_loss = train_step(real_images, real_code)
-        print(
-            "\r[{}/{}]  d_loss: {:.4}, g_loss: {:.4}, e_loss: {:.4}".format(
-                i, iters, d_loss, g_loss, e_loss
-            ),
-            end="",
-        )
+    with train_summary_writer.as_default():
+        for i in range(iters):
+            real_images = x_train[np.random.permutation(num_of_data)[:batch_size]]
+            real_code = z_train[np.random.permutation(num_of_data)[:batch_size]]
 
-        # if (i + 1) % check_point == 0:
-        #     # save G(x) images
-        #     image = generator.predict(encoder.predict(x_train[:100]))
-        #     image = np.reshape(image, (10, 10, 28, 28))
-        #     image = np.transpose(image, (0, 2, 1, 3))
-        #     image = np.reshape(image, (10 * 28, 10 * 28))
-        #     image = 255 * (image + 1) / 2
-        #     image = np.clip(image, 0, 255)
-        #     image = image.astype("uint8")
-        #     Image.fromarray(image, "L").save("G_E_x-{}.png".format(i // check_point))
+            d_loss, g_loss, e_loss = train_step(real_images, real_code)
+            tf.summary.scalar("d_loss", d_loss, step=i)
+            tf.summary.scalar("g_loss", g_loss, step=i)
+            tf.summary.scalar("e_loss", e_loss, step=i)
+            print(
+                "\r[{}/{}]  d_loss: {:.4}, g_loss: {:.4}, e_loss: {:.4}".format(
+                    i, iters, d_loss, g_loss, e_loss
+                ),
+                end="",
+            )
 
-        #     # save G(z) images
-        #     image = generator.predict(z_test)
-        #     image = np.reshape(image, (10, 10, 28, 28))
-        #     image = np.transpose(image, (0, 2, 1, 3))
-        #     image = np.reshape(image, (10 * 28, 10 * 28))
-        #     image = 255 * (image + 1) / 2
-        #     image = np.clip(image, 0, 255)
-        #     image = image.astype("uint8")
-        #     Image.fromarray(image, "L").save("G_z-{}.png".format(i // check_point))
+            # if (i + 1) % check_point == 0:
+            #     x2, y2 = load_data()
+            #     y_guess = discriminator.predict([x2, encoder.predict(x2)])
+            #     tf.summary.text("test", str(np.hstack([y_guess, y2])), step=i)
+            #     tf.summary.text("test", str(np.hstack([y_guess, y2])), step=i)
+
+            #     # save G(x) images
+            #     image = generator.predict(encoder.predict(x_train[:100]))
+            #     image = np.reshape(image, (10, 10, 28, 28))
+            #     image = np.transpose(image, (0, 2, 1, 3))
+            #     image = np.reshape(image, (10 * 28, 10 * 28))
+            #     image = 255 * (image + 1) / 2
+            #     image = np.clip(image, 0, 255)
+            #     image = image.astype("uint8")
+            #     Image.fromarray(image, "L").save("G_E_x-{}.png".format(i // check_point))
+
+            #     # save G(z) images
+            #     image = generator.predict(z_test)
+            #     image = np.reshape(image, (10, 10, 28, 28))
+            #     image = np.transpose(image, (0, 2, 1, 3))
+            #     image = np.reshape(image, (10 * 28, 10 * 28))
+            #     image = 255 * (image + 1) / 2
+            #     image = np.clip(image, 0, 255)
+            #     image = image.astype("uint8")
+            #     Image.fromarray(image, "L").save("G_z-{}.png".format(i // check_point))
 
 
 if __name__ == "__main__":
