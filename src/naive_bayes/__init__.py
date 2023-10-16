@@ -4,4 +4,4 @@ import logging
 logger = logging.getLogger(__name__)
 logger.debug(f"Loading {__name__}")
 
-from .sota_method2 import *
+from .naive_bayes import *

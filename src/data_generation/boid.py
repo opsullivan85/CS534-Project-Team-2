@@ -311,7 +311,13 @@ class BoidLogger:
         return neighbor_offsets
 
 
-def get_data(num_good_boids, num_faulty_boids, num_iterations, visualize=True):
+def get_data(
+    num_good_boids,
+    num_faulty_boids,
+    num_iterations,
+    visualize=True,
+    file_name: str = "data/boid_log.csv",
+):
     if visualize:
         import matplotlib.pyplot as plt
 
@@ -328,13 +334,15 @@ def get_data(num_good_boids, num_faulty_boids, num_iterations, visualize=True):
     bf.boids[:, BoidField.vel_slice] = (
         np.random.rand(num_good_boids + num_faulty_boids, 2) * 500 - 250
     )
-    logger = BoidLogger("data/boid_log.csv", boid_field=bf)
+    logger = BoidLogger(file_name, boid_field=bf)
     logger.log_header()
+
+    print(f"Starting simulation: {file_name}")
 
     for i in range(num_iterations):
         bf.simulate(0.01)
         logger.log()
-        print(i)
+        print(f"Iteration {i:>5}/{num_iterations}", end="\r")
         if visualize:
             plt.scatter(
                 bf.boids[:, BoidField.x_pos_index],
@@ -346,6 +354,9 @@ def get_data(num_good_boids, num_faulty_boids, num_iterations, visualize=True):
             plt.ylim((0, bf.field_size))
             plt.pause(0.01)
             plt.clf()
+
+    print()
+    print()
 
 
 if __name__ == "__main__":
