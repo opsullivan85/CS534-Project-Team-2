@@ -5,4 +5,4 @@ logger = logging.getLogger(__name__)
 logger.debug(f"Loading {__name__}")
 
 from . import bigan_model
-from . import basig_gan
+from . import basic_gan
