@@ -12,6 +12,6 @@ logger = logging.getLogger(__name__)
 logger.debug(f"Loading {__name__}")
 
 from .gan_anomaly_detection import *
-from .sota_method2 import *
+from .naive_bayes import *
 from .sota_method3 import *
 from .sota_method4 import *
