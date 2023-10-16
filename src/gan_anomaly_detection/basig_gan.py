@@ -4,41 +4,49 @@ import datetime
 import numpy as np
 import tensorflow as tf
 
+from src.data_pre_processing import load_data, x_width
+
 # import tensorview as tv
 
 
 def generator(latent_dim=100, image_shape=(28, 28, 1)):
     noise = tf.keras.Input(shape=(latent_dim,))
-    x = tf.keras.layers.Dense(256)(noise)
+    x = tf.keras.layers.Dense(128)(noise)
+    x = tf.keras.layers.LeakyReLU(alpha=0.2)(x)
+    x = tf.keras.layers.BatchNormalization(momentum=0.8)(x)
+    x = tf.keras.layers.Dense(256)(x)
     x = tf.keras.layers.LeakyReLU(alpha=0.2)(x)
     x = tf.keras.layers.BatchNormalization(momentum=0.8)(x)
     x = tf.keras.layers.Dense(512)(x)
     x = tf.keras.layers.LeakyReLU(alpha=0.2)(x)
     x = tf.keras.layers.BatchNormalization(momentum=0.8)(x)
-    x = tf.keras.layers.Dense(1024)(x)
-    x = tf.keras.layers.LeakyReLU(alpha=0.2)(x)
-    x = tf.keras.layers.BatchNormalization(momentum=0.8)(x)
-    x = tf.keras.layers.Dense(np.prod(image_shape), activation="tanh")(x)
-    image = tf.keras.layers.Reshape(image_shape)(x)
-    gnet = tf.keras.Model(noise, image)
+    x = tf.keras.layers.Dense(x_width, activation="tanh")(x)
+    gnet = tf.keras.Model(noise, x)
     return gnet
 
 
-def discriminator(image_shape=(28, 28, 1)):
-    image = tf.keras.Input(shape=image_shape)
-    x = tf.keras.layers.Flatten()(image)
-    x = tf.keras.layers.Dense(512)(x)
+def discriminator():
+    image = tf.keras.Input(shape=(x_width,))
+    # x = tf.keras.layers.Flatten()(image)
+    x = tf.keras.layers.Dense(256)(image)
     x = tf.keras.layers.LeakyReLU(alpha=0.2)(x)
-    x = tf.keras.layers.Dense(256)(x)
+    x = tf.keras.layers.Dense(128)(x)
     x = tf.keras.layers.LeakyReLU(alpha=0.2)(x)
     logit = tf.keras.layers.Dense(1, activation="sigmoid")(x)
     dnet = tf.keras.Model(image, logit)
     return dnet
 
 
-def train(batch_num=10000, batch_size=128, latent_dim=100, image_shape=(28, 28, 1)):
-    image_log_interval = 50
-    dnet = discriminator(image_shape)
+def train(epocs=4, batch_size=128, latent_dim=100, image_shape=(28, 28, 1)):
+    X_train, y_train = load_data()
+    # filter out faulty boids
+    X_train = X_train[np.logical_not(y_train)[:, 0], :]
+    print(f"{X_train.shape = }")
+
+    epoch_size = X_train.shape[0] // batch_size
+
+    # image_log_interval = 50
+    dnet = discriminator()
     dnet.compile(
         loss="binary_crossentropy",
         optimizer=tf.keras.optimizers.Adam(0.0002, 0.5),
@@ -46,7 +54,7 @@ def train(batch_num=10000, batch_size=128, latent_dim=100, image_shape=(28, 28, 
     )
 
     noise = tf.keras.Input(shape=(latent_dim,))
-    gnet = generator(latent_dim, image_shape)
+    gnet = generator(latent_dim)
     frozen = tf.keras.Model(dnet.inputs, dnet.outputs)
     frozen.trainable = False
     image = gnet(noise)
@@ -58,25 +66,21 @@ def train(batch_num=10000, batch_size=128, latent_dim=100, image_shape=(28, 28, 
         metrics=["accuracy"],
     )
 
-    (X_train, _), (_, _) = tf.keras.datasets.fashion_mnist.load_data()
-    X_train = X_train / 127.5 - 1.0
-    X_train = np.expand_dims(X_train, axis=3)
-
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     train_log_dir = "logs/" + current_time + "/train"
     train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 
     with train_summary_writer.as_default():
         # tv_plot = tv.train.PlotMetrics(columns=2, wait_num=50)
-        for batch in range(batch_num):
+        for batch in range(epoch_size * epocs):
             batch_image = X_train[
                 np.random.choice(range(X_train.shape[0]), batch_size, False)
             ]
             batch_noise = np.random.normal(0, 1, (batch_size, latent_dim))
             batch_gen_image = gnet.predict(batch_noise, verbose=0)
 
-            if batch % image_log_interval == 0:
-                tf.summary.image("Generator Image", batch_gen_image, step=batch)
+            # if batch % image_log_interval == 0:
+            #     tf.summary.image("Generator Image", batch_gen_image, step=batch)
 
             d_loss_real = dnet.train_on_batch(batch_image, np.ones((batch_size, 1)))
             d_loss_fake = dnet.train_on_batch(
@@ -89,11 +93,12 @@ def train(batch_num=10000, batch_size=128, latent_dim=100, image_shape=(28, 28, 
             tf.summary.scalar("g_loss", g_loss[0], step=batch)
             tf.summary.scalar("g_binary_acc", g_loss[1], step=batch)
             print(
-                f"Batch: {batch:>5}/{batch_num}, D_loss: {d_loss[0]:6.4f}, D_binary_acc: {d_loss[1]:6.4f}, G_loss: {g_loss[0]:6.4f}, G_binary_acc: {g_loss[1]:6.4f}\r",
+                f"Batch: {batch:>5}/{epoch_size * epocs}, D_loss: {d_loss[0]:6.4f}, D_binary_acc: {d_loss[1]:6.4f}, G_loss: {g_loss[0]:6.4f}, G_binary_acc: {g_loss[1]:6.4f}\r",
                 end="",
             )
-    return gnet
+    return dnet
 
 
 if __name__ == "__main__":
-    gnet = train()
+    dnet = train()
+    dnet.save("data/dnet2.keras")
