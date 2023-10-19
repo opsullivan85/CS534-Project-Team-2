@@ -21,6 +21,9 @@ import tensorflow as tf
 import numpy as np
 from src.time_gan.utils import extract_time, rnn_cell, random_generator, batch_generator
 
+# needed to get the tf1 code to work
+tf.compat.v1.disable_eager_execution()
+
 
 def TimeGan(ori_data, parameters):
     """TimeGAN function.

@@ -102,3 +102,28 @@ def load_data(data_path: str = None) -> tuple[np.ndarray, np.ndarray]:
     data_path = data_path or Path(src.__file__).parent.parent / "data" / "boid_log.csv"
 
     return get_rolling_data(data_path, window_size=window_size, step_size=1)
+
+
+def load_timeseries_data(data_path: str = None) -> tuple[np.ndarray, np.ndarray]:
+    """Loads the data as a timeseries
+
+    dim1 = number of samples
+    dim2 = sequence length of the time-series
+    dim3 = feature dimensions
+
+    Args:
+        data_path (str, optional): Path to load data from. Defaults to `PROJECT_DIR/data/boid_log.csv`.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: X, y
+    """
+    # Get data
+    train_X, train_y = load_data(data_path)
+
+    no = -1  # number of samples
+    seq_len = window_size  # sequence length of the time-series
+    dim = X_fields_per_boid  # feature dimensions
+
+    # This method wants time series data
+    # so we unravel the data
+    train_X = train_X.reshape((no, seq_len, dim))
