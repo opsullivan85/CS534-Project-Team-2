@@ -127,3 +127,5 @@ def load_timeseries_data(data_path: str = None) -> tuple[np.ndarray, np.ndarray]
     # This method wants time series data
     # so we unravel the data
     train_X = train_X.reshape((no, seq_len, dim))
+
+    return train_X, train_y
