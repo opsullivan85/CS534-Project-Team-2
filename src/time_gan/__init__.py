@@ -4,4 +4,4 @@ import logging
 logger = logging.getLogger(__name__)
 logger.debug(f"Loading {__name__}")
 
-from .timegan import timegan
+from .time_gan import TimeGan

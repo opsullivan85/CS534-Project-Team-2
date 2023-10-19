@@ -3,7 +3,7 @@
 # anything that is meant to be imported by other modules.
 
 import logging
-from src.time_gan import timegan
+from src.time_gan import TimeGan
 from src.data_pre_processing import load_data
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ parameters["batch_size"] = 128
 train_X, train_y = load_data()
 
 # Run TimeGAN
-generated_data = timegan(train_X, parameters)
+generated_data = TimeGan(train_X, parameters)
 print("Finish Synthetic Data Generation")
 
 print(generated_data)
