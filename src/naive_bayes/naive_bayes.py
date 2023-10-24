@@ -1,11 +1,11 @@
-from sklearn.naive_bayes import MultinomialNB
+from sklearn.naive_bayes import GaussianNB
 import numpy as np
 from src.data_pre_processing import load_data, down_sample_data
 from src.data_generation import train_path, test_path
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
 
-def run() -> MultinomialNB:
+def run() -> GaussianNB:
     X_train, y_train = load_data(train_path)
     X_test, y_test = load_data(test_path)
     y_train = np.minimum(y_train, 1)  # convert all values to 0 or 1
@@ -18,7 +18,7 @@ def run() -> MultinomialNB:
     X_train, y_train = down_sample_data(X_train, y_train)
     X_test, y_test = down_sample_data(X_test, y_test)
 
-    mnb = MultinomialNB().fit(X_train, y_train)
+    mnb = GaussianNB().fit(X_train, y_train)
     y_pred = mnb.predict(X_test)
 
     # Calculate accuracy and confusion matrix for the test set
