@@ -8,7 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 logger.debug(f"Loading {__name__}")
 
-
+#TODO(anyone): Use distance from neighbor instead of raw x and y values. Maybe have a relative heading with the distance.
 @dataclass
 class BoidParameters:
     """Stores the parameters of a boid."""
