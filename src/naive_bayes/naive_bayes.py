@@ -1,7 +1,8 @@
 from sklearn.naive_bayes import MultinomialNB
 import numpy as np
-from src.data_pre_processing import load_data
+from src.data_pre_processing import load_data, down_sample_data
 from src.data_generation import train_path, test_path
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
 
 def run() -> MultinomialNB:
@@ -14,34 +15,20 @@ def run() -> MultinomialNB:
     X_train += 1  # make all values positive
     X_test += 1  # make all values positive
 
+    X_train, y_train = down_sample_data(X_train, y_train)
+    X_test, y_test = down_sample_data(X_test, y_test)
+
     mnb = MultinomialNB().fit(X_train, y_train)
-
-    y_pred = mnb.predict(X_train)
-    correct = np.sum(y_pred == y_train) / len(y_train)
-    false_pos = np.sum((y_pred == 1) & (y_train == 0)) / len(y_train)
-    false_neg = np.sum((y_pred == 0) & (y_train == 1)) / len(y_train)
-    faulty_correct = np.sum(y_pred[y_train == 1] == y_train[y_train == 1]) / len(
-        y_train[y_train == 1]
-    )
-
-    print("Train Accuracy: ", correct)
-    print("Train False Positive Rate: ", false_pos)
-    print("Train False Negative Rate: ", false_neg)
-    print("Test-faulty Accuracy: ", faulty_correct)
-    print()
-
     y_pred = mnb.predict(X_test)
-    correct = np.sum(y_pred == y_test) / len(y_test)
-    false_pos = np.sum((y_pred == 1) & (y_test == 0)) / len(y_test)
-    false_neg = np.sum((y_pred == 0) & (y_test == 1)) / len(y_test)
-    faulty_correct = np.sum(y_pred[y_test == 1] == y_test[y_test == 1]) / len(
-        y_test[y_test == 1]
-    )
 
-    print("Test Accuracy: ", correct)
-    print("Test False Positive Rate: ", false_pos)
-    print("Test False Negative Rate: ", false_neg)
-    print("Test-faulty Accuracy: ", faulty_correct)
-    print()
+    # Calculate accuracy and confusion matrix for the test set
+    accuracy = accuracy_score(y_test, y_pred)
+    confusion = confusion_matrix(y_test, y_pred)
+
+    print(f"Accuracy: {accuracy}")
+    print("Confusion Matrix:")
+    print(confusion)
+    print("Classification Report:")
+    print(classification_report(y_test, y_pred))
 
     return mnb
