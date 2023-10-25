@@ -344,11 +344,22 @@ def get_data(
         logger.log()
         print(f"Iteration {i:>5}/{num_iterations}", end="\r")
         if visualize:
-            plt.scatter(
+            # plt.scatter(
+            #     bf.boids[:, BoidField.x_pos_index],
+            #     bf.boids[:, BoidField.y_pos_index],
+            #     c=bf.boids[:, BoidField.is_faulty_index],
+            #     s=20,
+            # )
+            velocity_magnitudes = np.linalg.norm(
+                bf.boids[:, BoidField.vel_slice], axis=1
+            )
+            plt.quiver(
                 bf.boids[:, BoidField.x_pos_index],
                 bf.boids[:, BoidField.y_pos_index],
-                c=bf.boids[:, BoidField.is_faulty_index],
-                s=20,
+                bf.boids[:, BoidField.x_vel_index] / velocity_magnitudes,
+                bf.boids[:, BoidField.y_vel_index] / velocity_magnitudes,
+                bf.boids[:, BoidField.is_faulty_index],
+                scale=35,
             )
             plt.xlim((0, bf.field_size))
             plt.ylim((0, bf.field_size))
