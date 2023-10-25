@@ -74,6 +74,7 @@ class BoidField:
         boids: np.ndarray,
         field_size: float,
         max_velocity: float = 500,
+        min_velocity: float = 200,
     ) -> None:
         """Creates a new BoidField.
 
@@ -101,6 +102,7 @@ class BoidField:
         self.boids = boids
         self.field_size = field_size
         self.max_velocity = max_velocity
+        self.min_velocity = min_velocity
 
     def apply_velocity(self, dt: float = 1) -> None:
         """Applies the velocity of each boid to its position. Boids wrap around field boundaries.
@@ -118,8 +120,15 @@ class BoidField:
             max_velocity (float): Maximum velocity.
         """
         velocities = self.boids[:, BoidField.vel_slice]
-        velocities = np.minimum(velocities, self.max_velocity)
-        velocities = np.maximum(velocities, -self.max_velocity)
+        velocity_magnitudes = np.linalg.norm(velocities, axis=1)
+        velocity_too_high = velocity_magnitudes > self.max_velocity
+        velocity_too_low = velocity_magnitudes < self.min_velocity
+        velocities[velocity_too_high] *= (
+            self.max_velocity / velocity_magnitudes[velocity_too_high]
+        )[:, None]
+        velocities[velocity_too_low] *= (
+            self.min_velocity / velocity_magnitudes[velocity_too_low]
+        )[:, None]
         self.boids[:, BoidField.vel_slice] = velocities
 
     def simulate(self, dt=1) -> None:
@@ -330,7 +339,7 @@ def get_data(
     bf = BoidField.make_boid_field(
         num_good_boids, num_faulty_boids, boid_params, faulty_boid_params
     )
-    bf.max_velocity = 200
+    # bf.max_velocity = 200
     bf.boids[:, BoidField.vel_slice] = (
         np.random.rand(num_good_boids + num_faulty_boids, 2) * 500 - 250
     )
