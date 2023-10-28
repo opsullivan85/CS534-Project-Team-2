@@ -8,7 +8,11 @@ import src
 
 fields_per_boid = BoidField.num_parameters
 fields_per_boid -= 6  # metaparameters are not logged
-fields_per_boid += 6  # 2 values for 3 neighbors are logged
+num_neighbors = 3
+values_per_neighbor = 1
+fields_per_boid += (
+    num_neighbors * values_per_neighbor
+)  # add the number of neighbors to the fields per boid
 is_faulty_index = BoidField.is_faulty_index - 6  # because metaparameters are not logged
 
 y_fields_per_boid = 1

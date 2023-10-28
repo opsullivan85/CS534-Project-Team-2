@@ -278,8 +278,9 @@ class BoidLogger:
             labels = list(np.asarray(labels)[self.log_mask])
 
         for i in range(self.num_neighbors):
-            labels.append(f"neighbor_{i}_x_distance")
-            labels.append(f"neighbor_{i}_y_distance")
+            # labels.append(f"neighbor_{i}_x_distance")
+            # labels.append(f"neighbor_{i}_y_distance")
+            labels.append(f"neighbor_{i}_distance")
 
         all_labels = []
         for i in range(self.boid_field.boids.shape[0]):
@@ -305,10 +306,11 @@ class BoidLogger:
             axis=1,
         )
         neighbor_indices = np.argsort(distances)[1 : num_neighbors + 1]
-        neighbors = boid_field.boids[neighbor_indices]
-        neighbor_offsets = neighbors[:, BoidField.pos_slice] - boid[BoidField.pos_slice]
-        neighbor_offsets = neighbor_offsets.ravel()
-        return neighbor_offsets
+        # neighbors = boid_field.boids[neighbor_indices]
+        # neighbor_offsets = neighbors[:, BoidField.pos_slice] - boid[BoidField.pos_slice]
+        # neighbor_offsets = neighbor_offsets.ravel()
+        # return neighbor_offsets
+        return distances[neighbor_indices]
 
 
 def get_data(

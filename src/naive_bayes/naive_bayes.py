@@ -25,10 +25,12 @@ def run():
     accuracy = accuracy_score(y_test, y_pred)
     confusion = confusion_matrix(y_test, y_pred)
 
-    print("GaussianNB")
+    print("Naive Bayes")
+    print()
     print(f"Accuracy: {accuracy}")
     print("Confusion Matrix:")
     print(confusion)
+    print()
     print("Classification Report:")
     print(classification_report(y_test, y_pred))
 
