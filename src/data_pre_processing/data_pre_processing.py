@@ -118,7 +118,7 @@ def load_timeseries_data(data_path: str = None) -> tuple[np.ndarray, np.ndarray]
         tuple[np.ndarray, np.ndarray]: X, y
     """
     # Get data
-    train_X, train_y = load_data(data_path)
+    X, y = load_data(data_path)
 
     no = -1  # number of samples
     seq_len = window_size  # sequence length of the time-series
@@ -126,9 +126,10 @@ def load_timeseries_data(data_path: str = None) -> tuple[np.ndarray, np.ndarray]
 
     # This method wants time series data
     # so we unravel the data
-    train_X = train_X.reshape((no, seq_len, dim))
+    X = X.reshape((no, seq_len, dim))
 
-    return train_X, train_y
+    return X, y
+  
 
 def filter_fault_type_boids_from_data(X: np.ndarray, y: np.ndarray, fault_type: int) -> tuple[np.ndarray, np.ndarray]:
     """Filters only data from a particular fault type from the data
@@ -152,3 +153,26 @@ def filter_fault_type_boids_from_data(X: np.ndarray, y: np.ndarray, fault_type: 
     filterd_X = X[indices,:,:]
 
     return filterd_X, filtered_y
+  
+
+def down_sample_data(X, y):
+    """Down samples the number of healthy boids to match the number of faulty boids
+    Specifically finds the number of non-zero values in y, and then randomly selects
+    that many healthy boids to keep. Assumes that the healthy boids are at the start
+
+    Args:
+        X: X Data
+        y: y Data
+
+    Returns:
+        X: X Data
+        y: y Data
+    """
+    num_faulty = np.count_nonzero(y)
+    num_healthy = y.shape[0] - num_faulty
+    random_healthy_indices = np.random.choice(
+        num_healthy - num_faulty, num_faulty, replace=False
+    )
+    X = np.concatenate((X[random_healthy_indices], X[-num_faulty:]))
+    y = np.concatenate((y[random_healthy_indices], y[-num_faulty:]))
+    return X, y

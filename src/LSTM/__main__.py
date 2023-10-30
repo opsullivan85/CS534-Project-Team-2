@@ -3,9 +3,9 @@
 # anything that is meant to be imported by other modules.
 
 import logging
-from src import sota_method3
+from src import LSTM
 
 logger = logging.getLogger(__name__)
 logger.debug(f"Loading {__name__}")
 
-sota_method3.hello_sota3()
+LSTM.lstm_method()
