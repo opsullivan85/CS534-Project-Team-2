@@ -18,6 +18,7 @@ Note: Use original data as training set to generater synthetic data (time-series
 
 # Necessary Packages
 import tensorflow as tf
+from keras.layers import Dense, GRUCell
 import numpy as np
 from src.time_gan.utils import extract_time, rnn_cell, random_generator, batch_generator
 
@@ -103,9 +104,7 @@ def TimeGan(ori_data, parameters):
             e_outputs, e_last_states = tf.compat.v1.nn.dynamic_rnn(
                 e_cell, X, dtype=tf.float32, sequence_length=T
             )
-            H = tf.contrib.layers.fully_connected(
-                e_outputs, hidden_dim, activation_fn=tf.nn.sigmoid
-            )
+            H = Dense(hidden_dim, activation="sigmoid")(e_outputs)
         return H
 
     def recovery(H, T):
@@ -125,9 +124,7 @@ def TimeGan(ori_data, parameters):
             r_outputs, r_last_states = tf.compat.v1.nn.dynamic_rnn(
                 r_cell, H, dtype=tf.float32, sequence_length=T
             )
-            X_tilde = tf.contrib.layers.fully_connected(
-                r_outputs, dim, activation_fn=tf.nn.sigmoid
-            )
+            X_tilde = Dense(dim, activation="sigmoid")(r_outputs)
         return X_tilde
 
     def generator(Z, T):
@@ -147,9 +144,7 @@ def TimeGan(ori_data, parameters):
             e_outputs, e_last_states = tf.compat.v1.nn.dynamic_rnn(
                 e_cell, Z, dtype=tf.float32, sequence_length=T
             )
-            E = tf.contrib.layers.fully_connected(
-                e_outputs, hidden_dim, activation_fn=tf.nn.sigmoid
-            )
+            E = Dense(hidden_dim, activation="sigmoid")(e_outputs)
         return E
 
     def supervisor(H, T):
@@ -169,9 +164,7 @@ def TimeGan(ori_data, parameters):
             e_outputs, e_last_states = tf.compat.v1.nn.dynamic_rnn(
                 e_cell, H, dtype=tf.float32, sequence_length=T
             )
-            S = tf.contrib.layers.fully_connected(
-                e_outputs, hidden_dim, activation_fn=tf.nn.sigmoid
-            )
+            S = Dense(hidden_dim, activation="sigmoid")(e_outputs)
         return S
 
     def discriminator(H, T):
@@ -193,7 +186,7 @@ def TimeGan(ori_data, parameters):
             d_outputs, d_last_states = tf.compat.v1.nn.dynamic_rnn(
                 d_cell, H, dtype=tf.float32, sequence_length=T
             )
-            Y_hat = tf.contrib.layers.fully_connected(d_outputs, 1, activation_fn=None)
+            Y_hat = Dense(1)(d_outputs)
         return Y_hat
 
     # Embedder & Recovery
@@ -305,7 +298,7 @@ def TimeGan(ori_data, parameters):
         # Train embedder
         _, step_e_loss = sess.run([E0_solver, E_loss_T0], feed_dict={X: X_mb, T: T_mb})
         # Checkpoint
-        if itt % 1000 == 0:
+        if itt % 100 == 0:
             print(
                 "step: "
                 + str(itt)

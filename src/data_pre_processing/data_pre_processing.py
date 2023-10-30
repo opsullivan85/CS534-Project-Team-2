@@ -129,7 +129,31 @@ def load_timeseries_data(data_path: str = None) -> tuple[np.ndarray, np.ndarray]
     X = X.reshape((no, seq_len, dim))
 
     return X, y
+  
 
+def filter_fault_type_boids_from_data(X: np.ndarray, y: np.ndarray, fault_type: int) -> tuple[np.ndarray, np.ndarray]:
+    """Filters only data from a particular fault type from the data
+
+    dim1 = number of samples
+    dim2 = sequence length of the time-series
+    dim3 = feature dimensions
+
+    Args:
+        X: Input Data
+        y: Output Labels
+        fault_type: 0 - Not Faulty; 1-3 - Faulty
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: Filtered input data (X) and filtered output labels (y)
+    """
+
+    # Get only good boid indices and filter labels
+    indices = np.where(y == fault_type)[0]
+    filtered_y = y[indices]
+    filterd_X = X[indices,:,:]
+
+    return filterd_X, filtered_y
+  
 
 def down_sample_data(X, y):
     """Down samples the number of healthy boids to match the number of faulty boids
