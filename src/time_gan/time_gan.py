@@ -18,7 +18,7 @@ Note: Use original data as training set to generater synthetic data (time-series
 
 # Necessary Packages
 import tensorflow as tf
-from keras.layers import Dense, GRUCell
+from keras.layers import Dense
 import numpy as np
 from src.time_gan.utils import extract_time, rnn_cell, random_generator, batch_generator
 
@@ -26,7 +26,7 @@ from src.time_gan.utils import extract_time, rnn_cell, random_generator, batch_g
 tf.compat.v1.disable_eager_execution()
 
 
-def TimeGan(ori_data, parameters):
+def TimeGan(ori_data, parameters, X_test, y_test, num_fault_types):
     """TimeGAN function.
 
     Use original data as training set to generater synthetic data (time-series)
@@ -206,6 +206,7 @@ def TimeGan(ori_data, parameters):
     Y_real = discriminator(H, T)
     Y_fake_e = discriminator(E_hat, T)
 
+
     # Variables
     e_vars = [
         v for v in tf.compat.v1.trainable_variables() if v.name.startswith("embedder")
@@ -236,6 +237,12 @@ def TimeGan(ori_data, parameters):
         tf.zeros_like(Y_fake_e), Y_fake_e
     )
     D_loss = D_loss_real + D_loss_fake + gamma * D_loss_fake_e
+
+    print("Zeros Array: ", tf.zeros_like(Y_fake))
+    print("Fake: ", Y_fake)
+    print("Fake_e: ", Y_fake_e)
+    print("Zeros Array: ", tf.ones_like(Y_real))
+    print("Real: ", Y_real)
 
     # Generator loss
     # 1. Adversarial loss
@@ -323,7 +330,7 @@ def TimeGan(ori_data, parameters):
             [GS_solver, G_loss_S], feed_dict={Z: Z_mb, X: X_mb, T: T_mb}
         )
         # Checkpoint
-        if itt % 1000 == 0:
+        if itt % 100 == 0:
             print(
                 "step: "
                 + str(itt)
@@ -369,7 +376,7 @@ def TimeGan(ori_data, parameters):
             )
 
         # Print multiple checkpoints
-        if itt % 1000 == 0:
+        if itt % 100 == 0:
             print(
                 "step: "
                 + str(itt)
@@ -402,4 +409,39 @@ def TimeGan(ori_data, parameters):
     generated_data = generated_data * max_val
     generated_data = generated_data + min_val
 
-    return generated_data
+    
+    ## Testing of the discriminator
+    no_test, seq_len, dim_test = np.asarray(X_test).shape
+    test_time, max_seq_len = extract_time(X_test)
+    discriminator_output_curr = sess.run(Y_real, feed_dict={Z: Z_mb, X: X_test, T: test_time})
+
+    print("Type of disc output curr: ", type(discriminator_output_curr))
+    print("Shape of disc output curr: ", discriminator_output_curr.shape)
+
+    
+    discriminator_output = [[[] for _ in range(3)] for _ in range(num_fault_types)]
+    MEAN_INDEX = 0
+    MEDIAN_INDEX = 1
+    ORIGINAL_INDEX = 2
+    labels = np.array(np.squeeze(y_test), dtype=int)
+    for i in range(no_test):
+        discriminator_instance = discriminator_output_curr[i]
+        single_dimension = np.squeeze(discriminator_instance)
+        fault_type = labels[i]
+        discriminator_output[fault_type][MEAN_INDEX].append(np.mean(single_dimension))
+        discriminator_output[fault_type][MEDIAN_INDEX].append(np.median(single_dimension))
+        discriminator_output[fault_type][ORIGINAL_INDEX].append(i)
+
+    print("Discriminator Ouput by Fault Type Shape: ", len(discriminator_output), len(discriminator_output[0][0]), \
+          len(discriminator_output[1][0]), len(discriminator_output[2][0]), len(discriminator_output[3][0]))
+    print("Example output: ", discriminator_output[0][0])
+
+    totals = []
+    for i in range(num_fault_types):
+        mean_average = np.average(discriminator_output[i][MEAN_INDEX])
+        median_average = np.average(discriminator_output[i][MEDIAN_INDEX])
+        totals.append((mean_average, median_average))
+
+    print(totals)
+
+    return generated_data, discriminator_output, totals
