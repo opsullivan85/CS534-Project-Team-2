@@ -305,7 +305,7 @@ def TimeGan(ori_data, parameters, X_test, y_test, num_fault_types):
         # Train embedder
         _, step_e_loss = sess.run([E0_solver, E_loss_T0], feed_dict={X: X_mb, T: T_mb})
         # Checkpoint
-        if itt % 100 == 0:
+        if itt % 50 == 0:
             print(
                 "step: "
                 + str(itt)
@@ -330,7 +330,7 @@ def TimeGan(ori_data, parameters, X_test, y_test, num_fault_types):
             [GS_solver, G_loss_S], feed_dict={Z: Z_mb, X: X_mb, T: T_mb}
         )
         # Checkpoint
-        if itt % 100 == 0:
+        if itt % 50 == 0:
             print(
                 "step: "
                 + str(itt)
@@ -345,6 +345,9 @@ def TimeGan(ori_data, parameters, X_test, y_test, num_fault_types):
     # 3. Joint Training
     print("Start Joint Training")
 
+    THRESHOLD_LOW = 0.15
+    ABOVE_TThHRESHOLD = 0.1
+    never_reached_low = True
     for itt in range(iterations):
         # Generator training (twice more than discriminator training)
         for kk in range(2):
@@ -370,13 +373,19 @@ def TimeGan(ori_data, parameters, X_test, y_test, num_fault_types):
         # Check discriminator loss before updating
         check_d_loss = sess.run(D_loss, feed_dict={X: X_mb, T: T_mb, Z: Z_mb})
         # Train discriminator (only when the discriminator does not work well)
-        if check_d_loss > 0.15:
+
+        if check_d_loss > THRESHOLD_LOW and never_reached_low:
             _, step_d_loss = sess.run(
                 [D_solver, D_loss], feed_dict={X: X_mb, T: T_mb, Z: Z_mb}
             )
+        else:
+            if check_d_loss <= THRESHOLD_LOW:
+                never_reached_low = False
+            elif check_d_loss > THRESHOLD_LOW + ABOVE_TThHRESHOLD:
+                never_reached_low = True  # Start training discriminator again
 
         # Print multiple checkpoints
-        if itt % 100 == 0:
+        if itt % 10 == 0:
             print(
                 "step: "
                 + str(itt)
@@ -409,39 +418,57 @@ def TimeGan(ori_data, parameters, X_test, y_test, num_fault_types):
     generated_data = generated_data * max_val
     generated_data = generated_data + min_val
 
-    
+    print("Finished Getting Generated Data")
     ## Testing of the discriminator
     no_test, seq_len, dim_test = np.asarray(X_test).shape
     test_time, max_seq_len = extract_time(X_test)
-    discriminator_output_curr = sess.run(Y_real, feed_dict={Z: Z_mb, X: X_test, T: test_time})
+    real_curr, fake_curr, fake_e_curr = sess.run([Y_real, Y_fake, Y_fake_e], feed_dict={Z: Z_mb, X: X_test, T: test_time})
 
-    print("Type of disc output curr: ", type(discriminator_output_curr))
-    print("Shape of disc output curr: ", discriminator_output_curr.shape)
 
+    print("Type of disc output curr: ", type(real_curr), type(fake_curr), type(fake_e_curr))
+    print("Shape of disc output curr: ", real_curr.shape, fake_curr.shape, fake_e_curr.shape)
+
+    def populate_output(curr, labels, mean_idx, median_idx, orig_idx):
+        output = [[[] for _ in range(3)] for _ in range(num_fault_types)]
+        for i in range(3060):
+            instance = curr[i]
+            instance_1D = np.squeeze(instance)
+            fault_type = labels[i]
+            output[fault_type][mean_idx].append(np.mean(instance_1D))
+            output[fault_type][median_idx].append(np.median(instance_1D))
+            output[fault_type][orig_idx].append(i)
+
+        return output
+
+        
     
-    discriminator_output = [[[] for _ in range(3)] for _ in range(num_fault_types)]
     MEAN_INDEX = 0
     MEDIAN_INDEX = 1
     ORIGINAL_INDEX = 2
     labels = np.array(np.squeeze(y_test), dtype=int)
-    for i in range(no_test):
-        discriminator_instance = discriminator_output_curr[i]
-        single_dimension = np.squeeze(discriminator_instance)
-        fault_type = labels[i]
-        discriminator_output[fault_type][MEAN_INDEX].append(np.mean(single_dimension))
-        discriminator_output[fault_type][MEDIAN_INDEX].append(np.median(single_dimension))
-        discriminator_output[fault_type][ORIGINAL_INDEX].append(i)
+    real_output = populate_output(real_curr, labels, MEAN_INDEX, MEDIAN_INDEX, ORIGINAL_INDEX)
+    fake_output = populate_output(fake_curr, labels, MEAN_INDEX, MEDIAN_INDEX, ORIGINAL_INDEX)
+    fake_e_output = populate_output(fake_e_curr, labels, MEAN_INDEX, MEDIAN_INDEX, ORIGINAL_INDEX)
 
-    print("Discriminator Ouput by Fault Type Shape: ", len(discriminator_output), len(discriminator_output[0][0]), \
-          len(discriminator_output[1][0]), len(discriminator_output[2][0]), len(discriminator_output[3][0]))
-    print("Example output: ", discriminator_output[0][0])
+    print("Discriminator Ouput by Fault Type Shape: ", len(real_output), len(real_output[0][0]), \
+          len(real_output[1][0]), len(real_output[2][0]), len(real_output[3][0]))
+    print("Example output: ", real_output[0][0])
 
-    totals = []
-    for i in range(num_fault_types):
-        mean_average = np.average(discriminator_output[i][MEAN_INDEX])
-        median_average = np.average(discriminator_output[i][MEDIAN_INDEX])
-        totals.append((mean_average, median_average))
+    def get_totals(output, mean_index, median_index):
+        totals = []
+        for i in range(num_fault_types):
+            mean_average = np.mean(output[i][MEAN_INDEX])
+            median_average = np.mean(output[i][MEDIAN_INDEX])
+            totals.append((mean_average, median_average))
 
-    print(totals)
+        return totals
 
-    return generated_data, discriminator_output, totals
+    real_totals = get_totals(real_output, MEAN_INDEX, MEDIAN_INDEX)
+    fake_totals = get_totals(fake_output, MEAN_INDEX, MEDIAN_INDEX)
+    fake_e_totals = get_totals(fake_e_output, MEAN_INDEX, MEDIAN_INDEX)
+
+    print(real_totals)
+    print(fake_totals)
+    print(fake_e_totals)
+
+    return generated_data, [real_output, fake_output, fake_e_output], [real_totals, fake_totals, fake_e_totals]

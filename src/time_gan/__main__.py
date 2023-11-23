@@ -19,11 +19,14 @@ good_X_train, good_y_train, bad_X_train, bad_y_train = separate_good_and_bad_boi
 good_X_test, good_y_test, bad_X_test, bad_y_test = separate_good_and_bad_boids_from_data(X_test, y_test)
 
 # Adding the bad from the train split since it's not used in training.
-X_test = np.concatenate((bad_X_train, bad_X_test, good_X_test), axis=0)
-y_test = np.concatenate((bad_y_train, bad_y_test, good_y_test), axis=0)
+X_padding = np.zeros((4284, 50, 10))
+y_padding = np.zeros((4284, 1))
+X_test = np.concatenate((bad_X_train, bad_X_test, good_X_test, X_padding), axis=0)
+y_test = np.concatenate((bad_y_train, bad_y_test, good_y_test, y_padding), axis=0)
 print("Shape of test x: ", X_test.shape)
 print("Shape of test y: ", y_test.shape)
-print(y_test)
+print(y_test.shape)
+print(X_test.shape)
 
 ## Newtork parameters
 parameters = dict()
@@ -33,7 +36,7 @@ parameters["hidden_dim"] = 24
 parameters["num_layer"] = 3
 parameters["batch_size"] = 128
 epoch_size = X_train.shape[0] // parameters["batch_size"]
-parameters["iterations"] = epoch_size * 4
+parameters["iterations"] = epoch_size * 20
 print(f"{parameters = }")
 
 # Run TimeGAN
