@@ -61,14 +61,32 @@ def run_demo(
             velocity_magnitudes = np.linalg.norm(
                 bf.boids[:, BoidField.vel_slice], axis=1
             )
+            colors = np.zeros_like(pred, dtype=int)
+            colors = colors | (y.astype(int) << 1)
+            colors = colors | (pred.astype(int))
+            # 0 = purple
+            # 1 = blue
+            # 2 = green
+            # 3 = yellow
+
+            # y, pred
+            # 0, 0 = purple TN
+            # 1, 0 = green FN
+            # 0, 1 = blue FP
+            # 1, 1 = yellow TP
+            
+            # pred correct <-> pred wrong
+            # blue <-> purple # real healthy
+            # green <-> yellow # real faulty
+            
             plt.quiver(
                 bf.boids[:, BoidField.x_pos_index],
                 bf.boids[:, BoidField.y_pos_index],
                 bf.boids[:, BoidField.x_vel_index] / velocity_magnitudes,
                 bf.boids[:, BoidField.y_vel_index] / velocity_magnitudes,
                 # bf.boids[:, BoidField.is_faulty_index],
-                pred * (y + 1),
-                # cmap="Set1",
+                # pred * (y + 1),
+                colors,
                 scale=35,
             )
             # 0 purple
