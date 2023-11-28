@@ -249,9 +249,9 @@ class BoidLogger:
     ) -> None:
         self.path = Path(file)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        _handle = open(str(self.path), "w", newline="")
+        self._handle = open(str(self.path), "w", newline="")
         self._csv_writer = csv.writer(
-            _handle, delimiter=",", quotechar="|", quoting=csv.QUOTE_MINIMAL
+            self._handle, delimiter=",", quotechar="|", quoting=csv.QUOTE_MINIMAL
         )
         self.num_neighbors = num_neighbors
         self.log_mask = np.ones(BoidField.num_parameters, dtype=bool)

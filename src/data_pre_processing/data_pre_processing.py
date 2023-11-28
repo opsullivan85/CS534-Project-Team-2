@@ -93,6 +93,50 @@ def get_rolling_data(
     return X, y
 
 
+def get_most_recent_data(file: str, window_size: int) -> tuple[np.ndarray, np.ndarray]:
+    """Gets rolling data from a file. only returns the most recent data for each boid
+
+    Args:
+        file (str): Path to data file
+        window_size (int): data window size. In terms of boid iterations.
+        step_size (int, optional): Ammount to step each window by. In terms of boid iterations. Defaults to 1.
+
+    Returns:
+        tuple[tuple[np.ndarray], tuple[float]]: X, y data.
+            X is an np.ndarray where each row is a window of flattened data for one boid.
+            y is an np.ndarray where each row is the is_faulty value for the boid
+    """
+    boids = seperate_boids(file)
+    X = []
+    y = []
+    data_mask = np.ones((fields_per_boid,), dtype=bool)
+    data_mask[is_faulty_index] = 0  # don't include is_faulty in X
+    for boid in boids:
+        masked_boid_data = boid[-window_size:, data_mask]
+        X.append(masked_boid_data.ravel())
+        y.append(
+            boid[0, is_faulty_index]
+        )  # is_faulty is the same for all timesteps, so just take the first one
+    X = np.vstack(X)
+    y = np.vstack(y)
+    return X, y
+
+
+def load_most_recent_data(data_path: str = None) -> tuple[np.ndarray, np.ndarray]:
+    """Loads the most recent data
+
+    Args:
+        data_path (str, optional): Path to load data from. Defaults to `PROJECT_DIR/data/boid_log.csv`.
+
+    Returns:
+        tuple[np.ndarray, np.ndarray]: X, y
+    """
+
+    data_path = data_path or Path(src.__file__).parent.parent / "data" / "boid_log.csv"
+
+    return get_most_recent_data(data_path, window_size=window_size)
+
+
 def load_data(data_path: str = None) -> tuple[np.ndarray, np.ndarray]:
     """Loads the data
 

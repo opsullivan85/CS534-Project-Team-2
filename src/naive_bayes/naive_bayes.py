@@ -10,8 +10,6 @@ def pre_process_data(X, y):
     y = y.ravel()  # flatten y_train
     X += 1  # make all values positive
     return X, y
-    
-    
 
 
 def run():
@@ -19,15 +17,15 @@ def run():
     X_train, y_train = load_data(train_path)
     X_test, y_test = load_data(test_path)
 
-    # pre-process data (make all X values positive, 
+    # pre-process data (make all X values positive,
     # convert all y values to 0 or 1)
     X_train, y_train = pre_process_data(X_train, y_train)
     X_test, y_test = pre_process_data(X_test, y_test)
 
-    # down sample data so that the number of healthy 
+    # down sample data so that the number of healthy
     # boids is equal to the number of faulty boids
     X_train, y_train = down_sample_data(X_train, y_train)
-    X_test, y_test = down_sample_data(X_test, y_test)
+    # X_test, y_test = down_sample_data(X_test, y_test)
 
     # get model and predict
     model = nb.GaussianNB().fit(X_train, y_train)
