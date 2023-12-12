@@ -327,6 +327,7 @@ def get_data(
     num_faulty_boids,
     num_iterations,
     visualize=True,
+    stabilization_iterations=100,
     file_name: str = "data/boid_log.csv",
 ):
     if visualize:
@@ -350,9 +351,10 @@ def get_data(
 
     print(f"Starting simulation: {file_name}")
 
-    for i in range(num_iterations):
+    for i in range(num_iterations + stabilization_iterations):
         bf.simulate(0.01)
-        logger.log()
+        if i >= stabilization_iterations:
+            logger.log()
         print(f"Iteration {i:>5}/{num_iterations}", end="\r")
         if visualize:
             # plt.scatter(
