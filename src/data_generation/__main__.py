@@ -13,12 +13,12 @@ get_data(
     num_faulty_boids=60,
     num_iterations=1000,
     file_name=train_path,
-    visualize=True,
+    visualize=False,
 )
 get_data(
     num_good_boids=300,
     num_faulty_boids=60,
     num_iterations=200,
     file_name=test_path,
-    visualize=False,
+    visualize=True,
 )

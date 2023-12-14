@@ -76,8 +76,8 @@ def run_demo(
             # 1, 1 = yellow TP
             
             # pred correct <-> pred wrong
-            # blue <-> purple # real healthy
-            # green <-> yellow # real faulty
+            # purple <-> blue # real healthy
+            # yellow <-> green # real faulty
             
             plt.quiver(
                 bf.boids[:, BoidField.x_pos_index],
