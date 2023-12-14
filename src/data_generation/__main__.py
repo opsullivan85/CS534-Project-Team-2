@@ -20,5 +20,5 @@ get_data(
     num_faulty_boids=60,
     num_iterations=200,
     file_name=test_path,
-    visualize=False,
+    visualize=True,
 )
