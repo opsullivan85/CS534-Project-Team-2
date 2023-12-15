@@ -14,4 +14,4 @@ logger.debug(f"Loading {__name__}")
 from .gan_anomaly_detection import *
 from .naive_bayes import *
 from .LSTM import *
-from .sota_method4 import *
+from .GDBT import *
