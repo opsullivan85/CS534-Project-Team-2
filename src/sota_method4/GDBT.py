@@ -30,6 +30,11 @@ def gradientB_decision_tree():
     # Train the classifier on the training data
     clf.fit(X_train, y_train)
 
+    model_filename = 'gradient_boosted_model.pkl'
+    with open(model_filename, 'wb') as model_file:
+        pickle.dump(clf, model_file)
+    print(f"Trained model saved to {model_filename}")
+
     # Make predictions on the test set
     y_test_pred = clf.predict(X_test)
 
