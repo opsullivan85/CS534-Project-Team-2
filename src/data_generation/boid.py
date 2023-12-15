@@ -74,6 +74,7 @@ class BoidField:
         boids: np.ndarray,
         field_size: float,
         max_velocity: float = 500,
+        min_velocity: float = 200,
     ) -> None:
         """Creates a new BoidField.
 
@@ -101,6 +102,7 @@ class BoidField:
         self.boids = boids
         self.field_size = field_size
         self.max_velocity = max_velocity
+        self.min_velocity = min_velocity
 
     def apply_velocity(self, dt: float = 1) -> None:
         """Applies the velocity of each boid to its position. Boids wrap around field boundaries.
@@ -118,8 +120,15 @@ class BoidField:
             max_velocity (float): Maximum velocity.
         """
         velocities = self.boids[:, BoidField.vel_slice]
-        velocities = np.minimum(velocities, self.max_velocity)
-        velocities = np.maximum(velocities, -self.max_velocity)
+        velocity_magnitudes = np.linalg.norm(velocities, axis=1)
+        velocity_too_high = velocity_magnitudes > self.max_velocity
+        velocity_too_low = velocity_magnitudes < self.min_velocity
+        velocities[velocity_too_high] *= (
+            self.max_velocity / velocity_magnitudes[velocity_too_high]
+        )[:, None]
+        velocities[velocity_too_low] *= (
+            self.min_velocity / velocity_magnitudes[velocity_too_low]
+        )[:, None]
         self.boids[:, BoidField.vel_slice] = velocities
 
     def simulate(self, dt=1) -> None:
@@ -240,9 +249,9 @@ class BoidLogger:
     ) -> None:
         self.path = Path(file)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        _handle = open(str(self.path), "w", newline="")
+        self._handle = open(str(self.path), "w", newline="")
         self._csv_writer = csv.writer(
-            _handle, delimiter=",", quotechar="|", quoting=csv.QUOTE_MINIMAL
+            self._handle, delimiter=",", quotechar="|", quoting=csv.QUOTE_MINIMAL
         )
         self.num_neighbors = num_neighbors
         self.log_mask = np.ones(BoidField.num_parameters, dtype=bool)
@@ -278,8 +287,9 @@ class BoidLogger:
             labels = list(np.asarray(labels)[self.log_mask])
 
         for i in range(self.num_neighbors):
-            labels.append(f"neighbor_{i}_x_distance")
-            labels.append(f"neighbor_{i}_y_distance")
+            # labels.append(f"neighbor_{i}_x_distance")
+            # labels.append(f"neighbor_{i}_y_distance")
+            labels.append(f"neighbor_{i}_distance")
 
         all_labels = []
         for i in range(self.boid_field.boids.shape[0]):
@@ -305,10 +315,11 @@ class BoidLogger:
             axis=1,
         )
         neighbor_indices = np.argsort(distances)[1 : num_neighbors + 1]
-        neighbors = boid_field.boids[neighbor_indices]
-        neighbor_offsets = neighbors[:, BoidField.pos_slice] - boid[BoidField.pos_slice]
-        neighbor_offsets = neighbor_offsets.ravel()
-        return neighbor_offsets
+        # neighbors = boid_field.boids[neighbor_indices]
+        # neighbor_offsets = neighbors[:, BoidField.pos_slice] - boid[BoidField.pos_slice]
+        # neighbor_offsets = neighbor_offsets.ravel()
+        # return neighbor_offsets
+        return distances[neighbor_indices]
 
 
 def get_data(
@@ -316,6 +327,7 @@ def get_data(
     num_faulty_boids,
     num_iterations,
     visualize=True,
+    stabilization_iterations=100,
     file_name: str = "data/boid_log.csv",
 ):
     if visualize:
@@ -330,7 +342,7 @@ def get_data(
     bf = BoidField.make_boid_field(
         num_good_boids, num_faulty_boids, boid_params, faulty_boid_params
     )
-    bf.max_velocity = 200
+    # bf.max_velocity = 200
     bf.boids[:, BoidField.vel_slice] = (
         np.random.rand(num_good_boids + num_faulty_boids, 2) * 500 - 250
     )
@@ -339,16 +351,28 @@ def get_data(
 
     print(f"Starting simulation: {file_name}")
 
-    for i in range(num_iterations):
+    for i in range(num_iterations + stabilization_iterations):
         bf.simulate(0.01)
-        logger.log()
+        if i >= stabilization_iterations:
+            logger.log()
         print(f"Iteration {i:>5}/{num_iterations}", end="\r")
         if visualize:
-            plt.scatter(
+            # plt.scatter(
+            #     bf.boids[:, BoidField.x_pos_index],
+            #     bf.boids[:, BoidField.y_pos_index],
+            #     c=bf.boids[:, BoidField.is_faulty_index],
+            #     s=20,
+            # )
+            velocity_magnitudes = np.linalg.norm(
+                bf.boids[:, BoidField.vel_slice], axis=1
+            )
+            plt.quiver(
                 bf.boids[:, BoidField.x_pos_index],
                 bf.boids[:, BoidField.y_pos_index],
-                c=bf.boids[:, BoidField.is_faulty_index],
-                s=20,
+                bf.boids[:, BoidField.x_vel_index] / velocity_magnitudes,
+                bf.boids[:, BoidField.y_vel_index] / velocity_magnitudes,
+                bf.boids[:, BoidField.is_faulty_index],
+                scale=35,
             )
             plt.xlim((0, bf.field_size))
             plt.ylim((0, bf.field_size))
