@@ -3,9 +3,9 @@
 # anything that is meant to be imported by other modules.
 
 import logging
-from src import sota_method4
+from src import GDBT
 
 logger = logging.getLogger(__name__)
 logger.debug(f"Loading {__name__}")
 
-sota_method4.hello_sota4()
+GDBT.gradientB_decision_tree()
