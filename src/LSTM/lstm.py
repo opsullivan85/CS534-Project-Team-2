@@ -1,30 +1,32 @@
-from src.data_pre_processing import load_timeseries_data, data_pre_processing
+from src.data_pre_processing import load_timeseries_data,down_sample_data,data_pre_processing
 import numpy as np
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense,Dropout,Bidirectional
-from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report,matthews_corrcoef
+import pickle
+from src.data_generation import train_path, test_path
+
 
 def lstm_method():
-    X, y = data_pre_processing.load_timeseries_data()
-    # converting labels 2 and 3 as 1
-    y[y == 2] = 1
-    y[y == 3] = 1
-    # Split the data into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42)#shuffle=False
+    #  uploading data
+    X_train, y_train = load_timeseries_data(train_path)
+    X_test, y_test = load_timeseries_data(test_path)
+    y_train[y_train == 2] = 1
+    y_train[y_train == 3] = 1
+    y_test[y_test == 2] = 1
+    y_test[y_test == 3] = 1
+    X_train, y_train = down_sample_data (X_train, y_train)
 
-
-    # Define the LSTM model
 
     model = Sequential()
-    model.add(LSTM(50, activation='relu', input_shape=(X_train.shape[1], X_train.shape[2])))
-    model.add(Dropout(0.2))  # Adjust the dropout rate as needed
-    model.add(Dense(1, activation='sigmoid'))
-    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    model.add(LSTM(100, activation='relu',input_shape=(X_train.shape[1], X_train.shape[2])))
+    model.add(Dropout(0.3))  # Adjust the dropout rate as needed
 
+    model.add(Dense(1, activation='sigmoid'))
+    model.compile(loss='binary_crossentropy', metrics=['accuracy'])
     # Train the model
-    #class_weight = {0: 1, 1: 10, 2: 10, 3: 10}  # Adjust the weights as needed
-    model.fit(X_train, y_train, epochs=10, batch_size=16)#, class_weight=class_weight
+    model.fit(X_train, y_train, epochs=10, batch_size=100)#, class_weight=class_weight
 
 
     # Make predictions on the test set, not the training set
@@ -37,11 +39,21 @@ def lstm_method():
     accuracy = accuracy_score(y_test, y_pred)
     confusion = confusion_matrix(y_test, y_pred)
 
+    # save the iris classification model as a pickle file
+    model_pkl_file = "lstm_model100.pkl"
+
+    with open(model_pkl_file, 'wb') as file:
+        pickle.dump(model, file)
+
     print(f"Accuracy: {accuracy}")
     print("Confusion Matrix:")
     print(confusion)
     print("Classification Report:")
     print(classification_report(y_test, y_pred))
+    print("MCC:")
+    print(matthews_corrcoef(y_test, y_pred))
 
 if __name__ == "__main__":
     lstm_method()
+
+
