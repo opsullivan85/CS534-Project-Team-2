@@ -179,7 +179,7 @@ def load_timeseries_data(data_path: str = None) -> tuple[np.ndarray, np.ndarray]
     return X, y
   
 
-def filter_fault_type_boids_from_data(X: np.ndarray, y: np.ndarray, fault_type: int) -> tuple[np.ndarray, np.ndarray]:
+def separate_good_and_bad_boids_from_data(X: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Filters only data from a particular fault type from the data
 
     dim1 = number of samples
@@ -194,13 +194,17 @@ def filter_fault_type_boids_from_data(X: np.ndarray, y: np.ndarray, fault_type: 
     Returns:
         tuple[np.ndarray, np.ndarray]: Filtered input data (X) and filtered output labels (y)
     """
+    NO_FAULT = 0
 
     # Get only good boid indices and filter labels
-    indices = np.where(y == fault_type)[0]
-    filtered_y = y[indices]
-    filterd_X = X[indices,:,:]
-
-    return filterd_X, filtered_y
+    good_indices = np.where(y == NO_FAULT)[0]
+    bad_indices = np.where(y != NO_FAULT)[0]
+    good_X = X[good_indices,:,:]
+    good_y = y[good_indices]
+    bad_X = X[bad_indices,:,:]
+    bad_y = y[bad_indices]
+    
+    return good_X, good_y, bad_X, bad_y
   
 
 def down_sample_data(X, y):
