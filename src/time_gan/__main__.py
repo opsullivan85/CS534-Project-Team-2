@@ -7,6 +7,7 @@ import numpy as np
 from src.time_gan import TimeGan
 from sklearn.model_selection import train_test_split
 from src.data_pre_processing import load_timeseries_data, separate_good_and_bad_boids_from_data, window_size, X_fields_per_boid
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 
 logger = logging.getLogger(__name__)
 logger.debug(f"Loading {__name__}")
@@ -36,9 +37,23 @@ parameters["hidden_dim"] = 24
 parameters["num_layer"] = 3
 parameters["batch_size"] = 128
 epoch_size = X_train.shape[0] // parameters["batch_size"]
-parameters["iterations"] = epoch_size * 20
+parameters["iterations"] = epoch_size * 4
 print(f"{parameters = }")
 
 # Run TimeGAN
-generated_data, discriminator_output, totals = TimeGan(X_train, parameters, X_test, y_test, NUM_FAULT_TYPES)
+generated_data, y_pred, totals = TimeGan(X_train, parameters, X_test, y_test, NUM_FAULT_TYPES)
 print("Finish Synthetic Data Generation")
+
+# Convert all errors into one type
+fault_indices = np.where(y_test != 0)[0]
+y_test[fault_indices] = 1
+
+accuracy = accuracy_score(y_test, y_pred)
+confusion = confusion_matrix(y_test, y_pred)
+
+print(f"Accuracy: {accuracy}")
+print("Confusion Matrix:")
+print(confusion)
+print("Classification Report:")
+print(classification_report(y_test, y_pred))
+
