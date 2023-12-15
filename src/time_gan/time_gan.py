@@ -238,12 +238,6 @@ def TimeGan(ori_data, parameters, X_test, y_test, num_fault_types):
     )
     D_loss = D_loss_real + D_loss_fake + gamma * D_loss_fake_e
 
-    print("Zeros Array: ", tf.zeros_like(Y_fake))
-    print("Fake: ", Y_fake)
-    print("Fake_e: ", Y_fake_e)
-    print("Zeros Array: ", tf.ones_like(Y_real))
-    print("Real: ", Y_real)
-
     # Generator loss
     # 1. Adversarial loss
     G_loss_U = tf.compat.v1.losses.sigmoid_cross_entropy(tf.ones_like(Y_fake), Y_fake)
@@ -302,13 +296,14 @@ def TimeGan(ori_data, parameters, X_test, y_test, num_fault_types):
     best_e_loss = np.inf
     counter = 0
     MAX_COUNTER = 50
+    EARLY_STOP_THRESHOLD = 0.00001
     for itt in range(iterations):
         # Set mini-batch
         X_mb, T_mb = batch_generator(ori_data, ori_time, batch_size)
         # Train embedder
         _, step_e_loss = sess.run([E0_solver, E_loss_T0], feed_dict={X: X_mb, T: T_mb})
 
-        if step_e_loss <= best_e_loss:
+        if best_e_loss > step_e_loss + EARLY_STOP_THRESHOLD:
             counter = 0
             best_e_loss = step_e_loss
         else:
@@ -321,7 +316,11 @@ def TimeGan(ori_data, parameters, X_test, y_test, num_fault_types):
                 + "/"
                 + str(iterations)
                 + ", e_loss: "
-                + str(np.round(np.sqrt(step_e_loss), 4))
+                + str(np.round(np.sqrt(step_e_loss), 4)) 
+                + ", counter: " 
+                + str(counter) 
+                + ", best_loss: "
+                + str(np.round(np.sqrt(best_e_loss), 4))
             )
         if counter >= MAX_COUNTER:
             print(f"No progress made for {MAX_COUNTER} steps, stopping early...")
@@ -334,6 +333,7 @@ def TimeGan(ori_data, parameters, X_test, y_test, num_fault_types):
 
     best_g_loss_s = np.inf
     counter = 0
+    EARLY_STOP_THRESHOLD = 0.00001
     for itt in range(iterations):
         # Set mini-batch
         X_mb, T_mb = batch_generator(ori_data, ori_time, batch_size)
@@ -344,9 +344,9 @@ def TimeGan(ori_data, parameters, X_test, y_test, num_fault_types):
             [GS_solver, G_loss_S], feed_dict={Z: Z_mb, X: X_mb, T: T_mb}
         )
 
-        if step_g_loss_s <= best_g_loss_s:
+        if best_g_loss_s > step_g_loss_s + EARLY_STOP_THRESHOLD:
             counter = 0
-            step_g_loss_s = step_g_loss_s
+            best_g_loss_s = step_g_loss_s
         else:
             counter += 1
         # Checkpoint
@@ -357,7 +357,13 @@ def TimeGan(ori_data, parameters, X_test, y_test, num_fault_types):
                 + "/"
                 + str(iterations)
                 + ", s_loss: "
-                + str(np.round(np.sqrt(step_g_loss_s), 4))
+                + str(np.round(np.sqrt(step_g_loss_s), 4)) 
+                + ", counter: " 
+                + str(counter)  
+                + ", counter: " 
+                + str(counter) 
+                + ", best_loss: "
+                + str(np.round(np.sqrt(best_g_loss_s), 4))
             )
         if counter >= MAX_COUNTER:
             print(f"No progress made for {MAX_COUNTER} steps, stopping early...")
@@ -370,6 +376,7 @@ def TimeGan(ori_data, parameters, X_test, y_test, num_fault_types):
 
     THRESHOLD_LOW = 0.15
     ABOVE_THRESHOLD = 0.1
+    EARLY_STOP_THRESHOLD = 0.001
     never_reached_low = True
     best_step_d_loss = np.inf
     best_step_g_loss_u = np.inf
@@ -420,19 +427,19 @@ def TimeGan(ori_data, parameters, X_test, y_test, num_fault_types):
                 counter = 0
 
         no_loss_gain = True
-        if best_step_d_loss >= step_d_loss:
+        if best_step_d_loss > step_d_loss + EARLY_STOP_THRESHOLD:
             best_step_d_loss = step_d_loss
             no_loss_gain = False
-        if best_step_g_loss_u >= step_g_loss_u:
+        if best_step_g_loss_u > step_g_loss_u + EARLY_STOP_THRESHOLD:
             best_step_g_loss_u = step_g_loss_u
             no_loss_gain = False
-        if best_step_g_loss_s >= step_g_loss_s:
+        if best_step_g_loss_s > step_g_loss_s + EARLY_STOP_THRESHOLD:
             best_step_g_loss_s = step_g_loss_s
             no_loss_gain = False
-        if best_step_g_loss_v >= step_g_loss_v:
+        if best_step_g_loss_v > step_g_loss_v + EARLY_STOP_THRESHOLD:
             best_step_g_loss_v = step_g_loss_v
             no_loss_gain = False
-        if best_step_e_loss_t0 >= step_e_loss_t0:
+        if best_step_e_loss_t0 > step_e_loss_t0 + EARLY_STOP_THRESHOLD:
             best_step_e_loss_t0 = step_e_loss_t0
             no_loss_gain = False
         if no_loss_gain:
@@ -456,95 +463,101 @@ def TimeGan(ori_data, parameters, X_test, y_test, num_fault_types):
                 + str(np.round(step_g_loss_v, 4))
                 + ", e_loss_t0: "
                 + str(np.round(np.sqrt(step_e_loss_t0), 4))
+                + ", counter: " 
+                + str(counter)
             )
         if counter >= MAX_COUNTER:
             print(f"No progress made for {MAX_COUNTER} steps, stopping early...")
             break
     print("Finish Joint Training")
 
+    ### Uncomment if you want generatro data
     ## Synthetic data generation
-    Z_mb = random_generator(no, z_dim, ori_time, max_seq_len)
-    generated_data_curr = sess.run(X_hat, feed_dict={Z: Z_mb, X: ori_data, T: ori_time})
+    # Z_mb = random_generator(no, z_dim, ori_time, max_seq_len)
+    # generated_data_curr = sess.run(X_hat, feed_dict={Z: Z_mb, X: ori_data, T: ori_time})
 
-    generated_data = list()
+    # generated_data = list()
 
-    for i in range(no):
-        temp = generated_data_curr[i, : ori_time[i], :]
-        generated_data.append(temp)
+    # for i in range(no):
+    #     temp = generated_data_curr[i, : ori_time[i], :]
+    #     generated_data.append(temp)
 
-    # Renormalization
-    generated_data = generated_data * max_val
-    generated_data = generated_data + min_val
+    # # Renormalization
+    # generated_data = generated_data * max_val
+    # generated_data = generated_data + min_val
 
-    print("Finished Getting Generated Data\n")
+    # print("Finished Getting Generated Data\n")
+
+
     ## Testing of the discriminator
+    TEST_BATCH_SIZE = 1000
     no_test, seq_len, dim_test = np.asarray(X_test).shape
-    test_time, max_seq_len = extract_time(X_test)
-    real_curr, fake_curr, fake_e_curr = sess.run([Y_real, Y_fake, Y_fake_e], feed_dict={Z: Z_mb, X: X_test, T: test_time})
+    X_test, min_val, max_val = MinMaxScaler(X_test)
+    num_batches = int(float(no_test) / float(TEST_BATCH_SIZE))
+    all_labels = np.array(np.squeeze(y_test), dtype=int)
+    y_pred_list = []
+    totals_list = [[], [], []]
+    for batch_num in range(1, num_batches+1):
+        starting_idx = ((batch_num-1) * TEST_BATCH_SIZE)
+        next_batch_idx = (batch_num * TEST_BATCH_SIZE) - 1
+        last_idx = next_batch_idx if batch_num < (num_batches) else no_test-1
+        batch = X_test[starting_idx:(last_idx+1)]
+        no_batch, seq_len, dim_batch = np.asarray(batch).shape
+        batch_time, max_seq_len = extract_time(batch)
+        Z_mb = random_generator(no_batch, dim_batch, batch_time, max_seq_len)
+        real_curr, fake_curr, fake_e_curr = sess.run([Y_real, Y_fake, Y_fake_e], feed_dict={Z: Z_mb, X: batch, T: batch_time})
 
+        def populate_output(curr, labels, mean_idx, median_idx, orig_idx):
+            output = [[[] for _ in range(3)] for _ in range(num_fault_types)]
+            for i in range(curr.shape[0]):
+                instance = curr[i]
+                instance_1D = np.squeeze(instance)
+                fault_type = labels[i]
+                output[fault_type][mean_idx].append(np.mean(instance_1D))
+                output[fault_type][median_idx].append(np.median(instance_1D))
+                output[fault_type][orig_idx].append(i)
 
-    print("Type of disc output curr: ", type(real_curr), type(fake_curr), type(fake_e_curr))
-    print("Shape of disc output curr: ", real_curr.shape, fake_curr.shape, fake_e_curr.shape)
+            return output
 
-    def populate_output(curr, labels, mean_idx, median_idx, orig_idx):
-        output = [[[] for _ in range(3)] for _ in range(num_fault_types)]
-        for i in range(curr.shape[0]):
-            instance = curr[i]
-            instance_1D = np.squeeze(instance)
-            fault_type = labels[i]
-            output[fault_type][mean_idx].append(np.mean(instance_1D))
-            output[fault_type][median_idx].append(np.median(instance_1D))
-            output[fault_type][orig_idx].append(i)
-
-        return output
-
+            
         
-    
-    MEAN_INDEX = 0
-    MEDIAN_INDEX = 1
-    ORIGINAL_INDEX = 2
-    labels = np.array(np.squeeze(y_test), dtype=int)
-    print("Shape of test labels: ", len(labels))
-    real_output = populate_output(real_curr, labels, MEAN_INDEX, MEDIAN_INDEX, ORIGINAL_INDEX)
-    fake_output = populate_output(fake_curr, labels, MEAN_INDEX, MEDIAN_INDEX, ORIGINAL_INDEX)
-    fake_e_output = populate_output(fake_e_curr, labels, MEAN_INDEX, MEDIAN_INDEX, ORIGINAL_INDEX)
+        MEAN_INDEX = 0
+        MEDIAN_INDEX = 1
+        ORIGINAL_INDEX = 2
+        labels = all_labels[starting_idx:(last_idx+1)]
+        real_output = populate_output(real_curr, labels, MEAN_INDEX, MEDIAN_INDEX, ORIGINAL_INDEX)
+        fake_output = populate_output(fake_curr, labels, MEAN_INDEX, MEDIAN_INDEX, ORIGINAL_INDEX)
+        fake_e_output = populate_output(fake_e_curr, labels, MEAN_INDEX, MEDIAN_INDEX, ORIGINAL_INDEX)
 
-    print("Discriminator Ouput by Fault Type Shape: ", len(real_output), len(real_output[0][0]), \
-          len(real_output[1][0]), len(real_output[2][0]), len(real_output[3][0]))
-    print("Example output real: ", real_output[0][0], "\n")
-    print("Example output fake: ", fake_output[0][0], "\n")
-    print("Example output fake_: ", fake_e_output[0][0], "\n")
+        def get_totals(output, mean_index, median_index):
+            totals = []
+            for i in range(num_fault_types):
+                mean_average = np.mean(output[i][mean_index])
+                median_average = np.mean(output[i][median_index])
+                totals.append((mean_average, median_average))
 
-    def get_totals(output, mean_index, median_index):
-        totals = []
-        for i in range(num_fault_types):
-            mean_average = np.mean(output[i][mean_index])
-            median_average = np.mean(output[i][median_index])
-            totals.append((mean_average, median_average))
+            return totals
 
-        return totals
+        real_averages = get_totals(real_output, MEAN_INDEX, MEDIAN_INDEX)
+        fake_averages = get_totals(fake_output, MEAN_INDEX, MEDIAN_INDEX)
+        fake_e_averages = get_totals(fake_e_output, MEAN_INDEX, MEDIAN_INDEX)
 
-    real_averages = get_totals(real_output, MEAN_INDEX, MEDIAN_INDEX)
-    fake_averages = get_totals(fake_output, MEAN_INDEX, MEDIAN_INDEX)
-    fake_e_averages = get_totals(fake_e_output, MEAN_INDEX, MEDIAN_INDEX)
-
-    print(real_averages)
-    print(fake_averages)
-    print(fake_e_averages)
-
-    # Goes through each fault type
-    y_pred = np.ones_like(labels)
-    for i in range(len(real_output)):
-        # Goes through data for each fault type. In this case we use the mean of each window.
-        for j in range(len(real_output[i][MEAN_INDEX])):
-            score = real_output[i][MEAN_INDEX][j] - fake_output[i][MEAN_INDEX][j] - fake_e_output[i][MEAN_INDEX][j]
-            if score > 0:
-                y_pred[real_output[i][ORIGINAL_INDEX][j]] = 0
-
-    for i in range(len(y_pred)):
-        if y_pred[i] == 1:
-            print("Oh no! There was one that didn't work!")
+        # Goes through each fault type
+        y_pred = np.ones_like(labels)
+        for i in range(len(real_output)):
+            # Goes through data for each fault type. In this case we use the mean of each window.
+            for j in range(len(real_output[i][MEAN_INDEX])):
+                score = real_output[i][MEAN_INDEX][j] - fake_output[i][MEAN_INDEX][j] - fake_e_output[i][MEAN_INDEX][j]
+                if score > 0:
+                    y_pred[real_output[i][ORIGINAL_INDEX][j]] = 0
 
 
+        y_pred_list.append(y_pred)
+        totals_list[0].append(real_averages)
+        totals_list[1].append(fake_averages)
+        totals_list[2].append(fake_e_averages)
 
-    return generated_data, y_pred, [real_averages, fake_averages, fake_e_averages]
+    totals = totals_list
+    y_pred = np.concatenate(y_pred_list)
+
+    return y_pred, totals

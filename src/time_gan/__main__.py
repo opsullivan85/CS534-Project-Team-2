@@ -14,20 +14,26 @@ logger.debug(f"Loading {__name__}")
 
 # Get data
 NUM_FAULT_TYPES = 4
-X, y = load_timeseries_data()
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42, stratify=y)
-good_X_train, good_y_train, bad_X_train, bad_y_train = separate_good_and_bad_boids_from_data(X_train, y_train)
-good_X_test, good_y_test, bad_X_test, bad_y_test = separate_good_and_bad_boids_from_data(X_test, y_test)
+X_train, y_train = load_timeseries_data()
+X_test, y_test = load_timeseries_data("./data/boid_log_test.csv")
 
+## Uncomment if there is no separated test set for testing
+# X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42, stratify=y)
+
+good_X_train, good_y_train, bad_X_train, bad_y_train = separate_good_and_bad_boids_from_data(X_train, y_train)
+
+## Uncomment if you want to add the unused bad boids from the train split into the test set.
+# good_X_test, good_y_test, bad_X_test, bad_y_test = separate_good_and_bad_boids_from_data(X_test, y_test)
 # Adding the bad from the train split since it's not used in training.
-X_padding = np.zeros((4284, 50, 10))
-y_padding = np.zeros((4284, 1))
-X_test = np.concatenate((bad_X_train, bad_X_test, good_X_test, X_padding), axis=0)
-y_test = np.concatenate((bad_y_train, bad_y_test, good_y_test, y_padding), axis=0)
+# X_test = np.concatenate((bad_X_train, bad_X_test, good_X_test), axis=0)
+# y_test = np.concatenate((bad_y_train, bad_y_test, good_y_test), axis=0)
+
+# Mixes up test set so that good and bad boids aren't right next to each other. Helps since testing has to be done in batches for large datasets because of hardware constraints.
+perm = np.random.permutation(X_test.shape[0])
+X_test = X_test[perm, :, :]
+y_test = y_test[perm, :]
 print("Shape of test x: ", X_test.shape)
 print("Shape of test y: ", y_test.shape)
-print(y_test.shape)
-print(X_test.shape)
 
 ## Newtork parameters
 parameters = dict()
@@ -38,11 +44,10 @@ parameters["num_layer"] = 3
 parameters["batch_size"] = 128
 epoch_size = X_train.shape[0] // parameters["batch_size"]
 parameters["iterations"] = epoch_size * 4
-print(f"{parameters = }")
 
 # Run TimeGAN
-generated_data, y_pred, totals = TimeGan(X_train, parameters, X_test, y_test, NUM_FAULT_TYPES)
-print("Finish Synthetic Data Generation")
+y_pred, totals = TimeGan(X_train, parameters, X_test, y_test, NUM_FAULT_TYPES)
+print("Finished Evaluating Predictions from time_GAN")
 
 # Convert all errors into one type
 fault_indices = np.where(y_test != 0)[0]
