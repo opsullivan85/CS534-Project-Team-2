@@ -3,9 +3,9 @@
 # anything that is meant to be imported by other modules.
 
 import logging
-from src import LSTM
+from src.LSTM import lstm_method
 
 logger = logging.getLogger(__name__)
 logger.debug(f"Loading {__name__}")
 
-LSTM.lstm_method()
+lstm_method()
